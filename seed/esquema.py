@@ -21,14 +21,19 @@ ARCHIVO_ESQUEMA = Path(__file__).with_name("esquema.cypher")
 
 
 def sentencias(archivo: Path = ARCHIVO_ESQUEMA) -> list[str]:
-    """Devuelve las sentencias del `.cypher`, sin comentarios ni bloques vacíos."""
-    # Los comentarios se quitan antes de partir por ';' para que un ';' dentro de
+    """Devuelve las sentencias del `.cypher`, sin comentarios ni bloques vacíos.
+
+    Los comentarios se cortan con `//` en cualquier posición de la línea, así que
+    un `//` dentro de un literal de Cypher (por ejemplo una URL en una cadena) no
+    se soporta. Este archivo no tiene literales con `//`.
+    """
+    # Se cortan los comentarios antes de partir por ';' para que un ';' dentro de
     # un comentario no genere una sentencia falsa.
-    lineas = [
-        linea
-        for linea in archivo.read_text(encoding="utf-8").splitlines()
-        if linea.strip() and not linea.strip().startswith("//")
-    ]
+    lineas = []
+    for linea in archivo.read_text(encoding="utf-8").splitlines():
+        codigo = linea.split("//", 1)[0].strip()
+        if codigo:
+            lineas.append(codigo)
     return [bloque.strip() for bloque in "\n".join(lineas).split(";") if bloque.strip()]
 
 
