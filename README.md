@@ -155,5 +155,6 @@ Las pruebas marcadas como `integration` necesitan un Neo4j desechable, no la ins
 
 ```bash
 docker run -d --name neo4j-test -p 7687:7687 -e NEO4J_AUTH=neo4j/testpassword neo4j:5.26
+until docker exec neo4j-test cypher-shell -u neo4j -p testpassword "RETURN 1" >/dev/null 2>&1; do sleep 2; done
 NEO4J_TEST_URI=bolt://localhost:7687 pytest
 ```
