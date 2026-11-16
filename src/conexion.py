@@ -1,0 +1,113 @@
+"""Conexión a Neo4j AuraDB con un driver único para toda la aplicación.
+
+Las credenciales se leen de variables de entorno cargadas desde `.env` (ver
+`.env.example`). Este módulo nunca imprime ni registra la contraseña ni la URI
+completa: los errores solo nombran las variables que faltan.
+
+Uso típico::
+
+    from src.conexion import leer, escribir
+
+    filas = leer("MATCH (p:Pelicula) RETURN p.titulo AS titulo")
+    escribir("CREATE (g:Genero {nombre: $nombre})", nombre="Drama")
+
+El driver se crea la primera vez que se usa y se reutiliza (pool de conexiones).
+Al terminar el programa se llama a `cerrar_driver()`.
+"""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+from typing import Any
+
+from dotenv import load_dotenv
+from neo4j import Driver, GraphDatabase, RoutingControl
+
+RAIZ = Path(__file__).resolve().parents[1]
+ARCHIVO_ENV = RAIZ / ".env"
+
+# Variables obligatorias. NEO4J_DATABASE es opcional: sin ella se usa la base por
+# defecto del servidor.
+VARIABLES = ("NEO4J_URI", "NEO4J_USERNAME", "NEO4J_PASSWORD")
+AYUDA = (
+    "Copia .env.example como .env en la raíz del repo y llena los datos de tu "
+    "instancia de Neo4j AuraDB."
+)
+
+_driver: Driver | None = None
+
+
+def _credenciales() -> dict[str, str]:
+    """Carga el `.env` y devuelve las variables obligatorias, o falla con un mensaje claro."""
+    load_dotenv(ARCHIVO_ENV)
+    faltantes = [variable for variable in VARIABLES if not os.getenv(variable)]
+    if faltantes:
+        raise RuntimeError(f"Faltan variables de entorno: {', '.join(faltantes)}. {AYUDA}")
+    return {variable: os.environ[variable] for variable in VARIABLES}
+
+
+def _base_de_datos() -> str | None:
+    """Base configurada en NEO4J_DATABASE (en Aura es el id de la instancia)."""
+    return os.getenv("NEO4J_DATABASE") or None
+
+
+def obtener_driver() -> Driver:
+    """Devuelve el driver único, creándolo la primera vez (singleton perezoso)."""
+    global _driver
+    if _driver is None:
+        credenciales = _credenciales()
+        _driver = GraphDatabase.driver(
+            credenciales["NEO4J_URI"],
+            auth=(credenciales["NEO4J_USERNAME"], credenciales["NEO4J_PASSWORD"]),
+        )
+    return _driver
+
+
+def cerrar_driver() -> None:
+    """Cierra el driver y limpia el singleton para que se pueda volver a crear."""
+    global _driver
+    if _driver is not None:
+        _driver.close()
+        _driver = None
+
+
+def _ejecutar(
+    consulta: str, enrutamiento: RoutingControl, parametros: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """Corre una consulta en una transacción administrada y devuelve las filas como dicts."""
+    driver = obtener_driver()
+    resultado = driver.execute_query(
+        consulta,
+        parameters_=parametros or None,
+        database_=_base_de_datos(),
+        routing_=enrutamiento,
+    )
+    return [registro.data() for registro in resultado.records]
+
+
+def leer(consulta: str, **parametros: Any) -> list[dict[str, Any]]:
+    """Ejecuta una consulta de lectura (routing READ) y devuelve las filas como dicts."""
+    return _ejecutar(consulta, RoutingControl.READ, parametros)
+
+
+def escribir(consulta: str, **parametros: Any) -> list[dict[str, Any]]:
+    """Ejecuta una consulta de escritura (routing WRITE) y devuelve las filas como dicts."""
+    return _ejecutar(consulta, RoutingControl.WRITE, parametros)
+
+
+def verificar_conexion() -> dict[str, Any]:
+    """Comprueba la conexión real y resume servidor, versión, base y cantidad de nodos."""
+    componentes = leer(
+        """
+        CALL dbms.components() YIELD name, versions
+        RETURN name AS servidor, versions[0] AS version
+        """
+    )
+    total = leer("MATCH (n) RETURN count(n) AS nodos")
+    return {
+        "servidor": componentes[0]["servidor"],
+        "version": componentes[0]["version"],
+        "base": _base_de_datos() or "neo4j",
+        "nodos": int(total[0]["nodos"]),
+    }
