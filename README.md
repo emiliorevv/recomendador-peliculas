@@ -94,6 +94,7 @@ Cada PR es una rama desde `main`, chica y revisable, y se mergea antes de empeza
 │   └── consultas.py       # recomendaciones, caminos y vecindad (PR 6)
 ├── seed/
 │   ├── esquema.cypher     # restricciones e índices (PR 3)
+│   ├── esquema.py         # aplica el esquema al grafo (PR 3)
 │   └── seed.py            # carga de datos iniciales (PR 4)
 ├── data/                  # películas y usuarios en JSON (PR 4)
 ├── tests/
@@ -142,6 +143,16 @@ cp .env.example .env      # y llena las credenciales que te dio Aura
 ```
 
 `.env` está en `.gitignore`: las credenciales nunca se suben al repo.
+
+### Esquema de la base
+
+```bash
+python seed/esquema.py    # restricciones e índices; se puede correr varias veces
+```
+
+> Si al conectar aparece `SSL: CERTIFICATE_VERIFY_FAILED` o `Unable to retrieve routing information`
+> en macOS, al intérprete le faltan los certificados raíz: corre `Install Certificates.command` del
+> instalador de Python o exporta `SSL_CERT_FILE=$(python -c "import certifi;print(certifi.where())")`.
 
 ### Pruebas y estilo
 
