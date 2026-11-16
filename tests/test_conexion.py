@@ -7,6 +7,10 @@ omite si no está definida. Nunca se usa NEO4J_URI, que apunta a AuraDB.
 
 from __future__ import annotations
 
+import os
+import threading
+from types import SimpleNamespace
+
 import pytest
 import src.conexion as conexion
 from seed.esquema import aplicar, sentencias
@@ -42,6 +46,56 @@ def test_cerrar_driver_sin_driver_no_falla(sin_driver):
     conexion.cerrar_driver()
 
 
+def test_cerrar_driver_limpia_el_singleton_si_close_falla(monkeypatch, sin_driver):
+    """Si el driver falla al cerrarse, el singleton igual queda vacío."""
+
+    class _DriverRoto:
+        def close(self) -> None:
+            raise RuntimeError("fallo al cerrar")
+
+    monkeypatch.setattr(conexion, "_driver", _DriverRoto())
+
+    with pytest.raises(RuntimeError):
+        conexion.cerrar_driver()
+
+    assert conexion._driver is None
+
+
+def test_obtener_driver_crea_uno_solo_entre_hilos(monkeypatch, sin_driver):
+    """Varios hilos pidiendo el driver a la vez comparten una única instancia."""
+
+    class _DriverFalso:
+        def close(self) -> None:
+            pass
+
+    creados = []
+
+    def fabrica(uri: str, auth: tuple[str, str]) -> _DriverFalso:
+        creados.append((uri, auth))
+        return _DriverFalso()
+
+    monkeypatch.setattr(conexion, "GraphDatabase", SimpleNamespace(driver=fabrica))
+    monkeypatch.setenv("NEO4J_URI", "bolt://pruebas:7687")
+    monkeypatch.setenv("NEO4J_USERNAME", "neo4j")
+    monkeypatch.setenv("NEO4J_PASSWORD", "secreto-de-prueba")
+
+    barrera = threading.Barrier(8)
+    obtenidos = []
+
+    def pedirlo() -> None:
+        barrera.wait()
+        obtenidos.append(conexion.obtener_driver())
+
+    hilos = [threading.Thread(target=pedirlo) for _ in range(8)]
+    for hilo in hilos:
+        hilo.start()
+    for hilo in hilos:
+        hilo.join()
+
+    assert len(creados) == 1
+    assert len({id(driver) for driver in obtenidos}) == 1
+
+
 def test_sentencias_del_esquema():
     """El .cypher se parte en 5 sentencias limpias, sin comentarios ni ';'."""
     lista = sentencias()
@@ -61,6 +115,22 @@ def test_sentencias_ignora_puntos_y_coma_en_comentarios(tmp_path):
     assert sentencias(archivo) == ["RETURN 1"]
 
 
+def test_sentencias_ignora_comentario_al_final_con_punto_y_coma(tmp_path):
+    """Un comentario al final de la sentencia, con ';' adentro, no la parte en dos."""
+    archivo = tmp_path / "esquema.cypher"
+    archivo.write_text(
+        "CREATE INDEX pelicula_titulo IF NOT EXISTS FOR (p:Pelicula) ON (p.titulo); "
+        "// ver PR 5; pendiente\n"
+        "RETURN 1;\n",
+        encoding="utf-8",
+    )
+
+    assert sentencias(archivo) == [
+        "CREATE INDEX pelicula_titulo IF NOT EXISTS FOR (p:Pelicula) ON (p.titulo)",
+        "RETURN 1",
+    ]
+
+
 @pytest.mark.integration
 def test_verificar_conexion(monkeypatch, driver):
     """verificar_conexion() responde contra la base de pruebas con datos reales."""
@@ -74,6 +144,15 @@ def test_verificar_conexion(monkeypatch, driver):
     assert info["base"]
     assert isinstance(info["nodos"], int)
     assert info["nodos"] >= 0
+
+
+@pytest.mark.integration
+def test_verificar_conexion_reporta_la_base_del_servidor(monkeypatch, driver):
+    """La base la dice el servidor y coincide con NEO4J_DATABASE cuando está definida."""
+    monkeypatch.setattr(conexion, "obtener_driver", lambda: driver)
+    monkeypatch.setenv("NEO4J_DATABASE", "neo4j")
+
+    assert conexion.verificar_conexion()["base"] == os.environ["NEO4J_DATABASE"]
 
 
 @pytest.mark.integration
