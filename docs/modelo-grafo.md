@@ -43,4 +43,6 @@ CREATE INDEX pelicula_titulo     IF NOT EXISTS FOR (p:Pelicula) ON (p.titulo);
 
 ## Datos iniciales (PR 4)
 
-35 películas, ~73 personas, 10 géneros, 12 usuarios, ~90 calificaciones y ~36 relaciones `SIGUE`.
+35 películas, 74 personas, 10 géneros, 12 usuarios, 95 calificaciones y 36 relaciones `SIGUE`
+(116 `ACTUO_EN`, 35 `DIRIGIO` y 86 `DE_GENERO`). Los resultados reales de las consultas de
+demostración están en [demo-resultados.md](demo-resultados.md).
