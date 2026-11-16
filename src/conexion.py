@@ -18,6 +18,7 @@ Al terminar el programa se llama a `cerrar_driver()`.
 from __future__ import annotations
 
 import os
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +37,8 @@ AYUDA = (
 )
 
 _driver: Driver | None = None
+# Streamlit atiende cada sesión en su propio hilo: el candado evita crear dos drivers.
+_candado = threading.Lock()
 
 
 def _credenciales() -> dict[str, str]:
@@ -53,23 +56,32 @@ def _base_de_datos() -> str | None:
 
 
 def obtener_driver() -> Driver:
-    """Devuelve el driver único, creándolo la primera vez (singleton perezoso)."""
+    """Devuelve el driver único, creándolo la primera vez (singleton seguro entre hilos)."""
     global _driver
     if _driver is None:
-        credenciales = _credenciales()
-        _driver = GraphDatabase.driver(
-            credenciales["NEO4J_URI"],
-            auth=(credenciales["NEO4J_USERNAME"], credenciales["NEO4J_PASSWORD"]),
-        )
+        with _candado:
+            # Doble verificación: otro hilo pudo crearlo mientras esperábamos.
+            if _driver is None:
+                credenciales = _credenciales()
+                _driver = GraphDatabase.driver(
+                    credenciales["NEO4J_URI"],
+                    auth=(credenciales["NEO4J_USERNAME"], credenciales["NEO4J_PASSWORD"]),
+                )
     return _driver
 
 
 def cerrar_driver() -> None:
     """Cierra el driver y limpia el singleton para que se pueda volver a crear."""
     global _driver
-    if _driver is not None:
-        _driver.close()
-        _driver = None
+    with _candado:
+        if _driver is None:
+            return
+        driver = _driver
+        try:
+            driver.close()
+        finally:
+            # Aunque close() falle, el singleton queda limpio y no se reutiliza a medias.
+            _driver = None
 
 
 def _ejecutar(
@@ -104,10 +116,14 @@ def verificar_conexion() -> dict[str, Any]:
         RETURN name AS servidor, versions[0] AS version
         """
     )
+    # La base real la dice el servidor: en Aura es el id de la instancia y no
+    # siempre coincide con NEO4J_DATABASE. `db.name()` no existe en 5.x, por eso
+    # se usa el procedimiento `db.info()`.
+    base = leer("CALL db.info() YIELD name RETURN name AS base")
     total = leer("MATCH (n) RETURN count(n) AS nodos")
     return {
         "servidor": componentes[0]["servidor"],
         "version": componentes[0]["version"],
-        "base": _base_de_datos() or "neo4j",
+        "base": base[0]["base"],
         "nodos": int(total[0]["nodos"]),
     }
