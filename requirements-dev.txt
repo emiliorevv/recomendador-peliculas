@@ -1,0 +1,4 @@
+-r requirements.txt
+
+pytest>=8.3
+ruff==0.17.5  # fijado: el formateador cambia entre versiones

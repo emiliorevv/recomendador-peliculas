@@ -1,0 +1,18 @@
+# Configuración de herramientas. Las dependencias viven en requirements*.txt.
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra --strict-markers"
+markers = [
+    "integration: necesita una base Neo4j de pruebas (NEO4J_TEST_URI)",
+]

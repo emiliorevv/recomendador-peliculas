@@ -1,5 +1,7 @@
 # Recomendador de películas con Neo4j
 
+[![CI](https://github.com/emiliorevv/recomendador-peliculas/actions/workflows/ci.yml/badge.svg)](https://github.com/emiliorevv/recomendador-peliculas/actions/workflows/ci.yml)
+
 Parcial de Bases de Datos Avanzadas: "Desarrollo e Integración de Aplicaciones con Bases de Datos NoSQL en la Nube". Entrega y exposición: miércoles 18 de noviembre.
 
 Aplicación en Python conectada a una base de datos de **grafos** (Neo4j AuraDB, en la nube) que guarda películas, actores, directores, géneros, usuarios y sus calificaciones. Con eso recomienda películas, encuentra películas parecidas, busca el camino más corto entre dos actores y sugiere a quién seguir.
@@ -63,37 +65,40 @@ Cada PR es una rama desde `main`, chica y revisable, y se mergea antes de empeza
 | # | Rama | Qué entrega | Criterio de la rúbrica |
 |---|---|---|---|
 | 1 | `docs/planeacion` | Este README, problema, justificación, modelo del grafo, ADRs, plantilla de PR | Justificación (15), Documentación (20) |
-| 2 | `chore/ci` | `pyproject.toml` con Ruff y pytest, `requirements.txt`, workflow de GitHub Actions con un Neo4j de pruebas | Código (25) |
+| 2 | `chore/ci` | `pyproject.toml` con Ruff y pytest, `requirements*.txt`, workflow de GitHub Actions con un Neo4j de pruebas y fixtures de pytest | Código (25) |
 | 3 | `feat/conexion-esquema` | `src/conexion.py` (driver único, credenciales del `.env`, lectura/escritura), restricciones e índices, prueba de conexión a AuraDB | Código e integración cloud (25), Diseño (20) |
 | 4 | `feat/seed` | Datos iniciales en `data/` y `seed/seed.py` (con `--reset`, sin duplicar con `MERGE`) | Entregable B (seeding script) |
-| 5 | `feat/crud-peliculas` | CRUD de películas + pruebas | CRUD obligatorio |
-| 6 | `feat/crud-usuarios` | CRUD de usuarios, calificaciones y seguidores + pruebas | CRUD obligatorio |
-| 7 | `feat/recomendaciones` | Recomendación colaborativa, películas parecidas y top por género + pruebas | Consultas del paradigma |
-| 8 | `feat/caminos-vecindad` | Camino más corto, vecindad y a quién seguir + pruebas | Consultas del paradigma |
-| 9 | `feat/app-streamlit` | Interfaz con secciones de CRUD, recomendaciones y caminos; muestra el Cypher y el tiempo de respuesta | Demo en vivo (20) |
-| 10 | `docs/reporte` | PDF de diseño y justificación (5 secciones del enunciado) y guion de demo y defensa | Documentación (20), Exposición (20) |
+| 5 | `feat/crud` | CRUD de películas, usuarios, calificaciones y seguidores + pruebas | CRUD obligatorio |
+| 6 | `feat/consultas` | Recomendación colaborativa, películas parecidas, top por género, camino más corto, vecindad y a quién seguir + pruebas | Consultas del paradigma |
+| 7 | `feat/app-streamlit` | Interfaz con secciones de CRUD, recomendaciones y caminos; muestra el Cypher y el tiempo de respuesta | Demo en vivo (20) |
+| 8 | `docs/reporte` | PDF de diseño y justificación (5 secciones del enunciado) y guion de demo y defensa | Documentación (20), Exposición (20) |
 
 ## Entregables del enunciado
 
-- [ ] **A. PDF** con: introducción y dominio, justificación del paradigma, arquitectura (diagrama de bloques), diseño del modelo (diagrama del grafo con etiquetas, propiedades y relaciones con dirección) y catálogo de consultas. Fuente en `docs/reporte/` (PR 10).
-- [ ] **B. Código** en este repo: modular y documentado, README con requisitos, instalación y ejecución, y script de seed (PRs 2 a 9).
-- [ ] **Demo** de 4 minutos conectada a AuraDB y **defensa** de 4 a 6 minutos ([docs/demo-y-defensa.md](docs/demo-y-defensa.md), PR 10).
+- [ ] **A. PDF** con: introducción y dominio, justificación del paradigma, arquitectura (diagrama de bloques), diseño del modelo (diagrama del grafo con etiquetas, propiedades y relaciones con dirección) y catálogo de consultas. Fuente en `docs/reporte/` (PR 8).
+- [ ] **B. Código** en este repo: modular y documentado, README con requisitos, instalación y ejecución, y script de seed (PRs 2 a 7).
+- [ ] **Demo** de 4 minutos conectada a AuraDB y **defensa** de 4 a 6 minutos ([docs/demo-y-defensa.md](docs/demo-y-defensa.md), PR 8).
 
 ## Estructura del repo
 
 ```
 .
-├── app.py                 # interfaz Streamlit (PR 9)
+├── app.py                 # interfaz Streamlit (PR 7)
+├── pyproject.toml         # configuración de Ruff y pytest
+├── requirements.txt       # dependencias de la app
+├── requirements-dev.txt   # dependencias de desarrollo (pytest, Ruff)
 ├── src/
 │   ├── conexion.py        # driver, credenciales, leer/escribir (PR 3)
 │   ├── peliculas.py       # CRUD de películas (PR 5)
-│   ├── usuarios.py        # CRUD de usuarios y calificaciones (PR 6)
-│   └── consultas.py       # recomendaciones, caminos y vecindad (PRs 7 y 8)
+│   ├── usuarios.py        # CRUD de usuarios y calificaciones (PR 5)
+│   └── consultas.py       # recomendaciones, caminos y vecindad (PR 6)
 ├── seed/
 │   ├── esquema.cypher     # restricciones e índices (PR 3)
 │   └── seed.py            # carga de datos iniciales (PR 4)
 ├── data/                  # películas y usuarios en JSON (PR 4)
-├── tests/                 # pytest contra un Neo4j de pruebas
+├── tests/
+│   ├── conftest.py        # fixtures y guardas para no tocar la base real
+│   └── ...                # pytest contra un Neo4j de pruebas
 ├── docs/
 │   ├── 01-problema.md
 │   ├── 02-justificacion.md
@@ -120,4 +125,36 @@ Cada PR es una rama desde `main`, chica y revisable, y se mergea antes de empeza
 
 ## Cómo correrlo
 
-> Se completa en el PR 4, cuando ya exista el seed. Requisitos: Python 3.12 o superior y una instancia de Neo4j AuraDB Free (https://console.neo4j.io).
+> La carga de datos y el arranque de la app se completan en los PRs 4 y 7.
+
+### Requisitos
+
+- Python 3.12 o superior.
+- Una instancia de Neo4j AuraDB Free (https://console.neo4j.io).
+
+### Instalación
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+cp .env.example .env      # y llena las credenciales que te dio Aura
+```
+
+`.env` está en `.gitignore`: las credenciales nunca se suben al repo.
+
+### Pruebas y estilo
+
+```bash
+ruff check .        # lint
+ruff format --check .
+pytest              # unitarias; las de integración se omiten sin base de pruebas
+```
+
+Las pruebas marcadas como `integration` necesitan un Neo4j desechable, no la instancia de AuraDB:
+
+```bash
+docker run -d --name neo4j-test -p 7687:7687 -e NEO4J_AUTH=neo4j/testpassword neo4j:5.26
+until docker exec neo4j-test cypher-shell -u neo4j -p testpassword "RETURN 1" >/dev/null 2>&1; do sleep 2; done
+NEO4J_TEST_URI=bolt://localhost:7687 pytest
+```
