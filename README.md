@@ -49,6 +49,7 @@ Propiedades, restricciones e índices en [docs/modelo-grafo.md](docs/modelo-graf
 - Películas: crear (con géneros, director y actores), consultar, actualizar y eliminar.
 - Usuarios: crear, consultar, renombrar y eliminar.
 - Calificaciones: calificar (crea o actualiza), ver las de un usuario y quitar una.
+- Seguidores: seguir, dejar de seguir y ver a quién sigue cada usuario y quiénes lo siguen.
 
 **Consultas propias del grafo** (catálogo completo en [docs/catalogo-consultas.md](docs/catalogo-consultas.md))
 - Recomendación colaborativa: lo que les gustó a usuarios con gustos parecidos (recorrido de 3 saltos).
@@ -173,8 +174,9 @@ Al final imprime los conteos del grafo y valida según el modo:
 > anterior tuviera datos que las violaran.
 
 > Si al conectar aparece `SSL: CERTIFICATE_VERIFY_FAILED` o `Unable to retrieve routing information`
-> en macOS, al intérprete le faltan los certificados raíz: corre `Install Certificates.command` del
-> instalador de Python o exporta `SSL_CERT_FILE=$(python -c "import certifi;print(certifi.where())")`.
+> en macOS, al intérprete le faltan los certificados raíz. `src/conexion.py` ya apunta
+> `SSL_CERT_FILE` al bundle de `certifi` cuando la variable no está definida, así que no hay que
+> exportar nada; si se quiere usar otro trust store, basta con definir `SSL_CERT_FILE` a mano.
 
 ### Pruebas y estilo
 
