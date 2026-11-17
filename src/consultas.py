@@ -64,10 +64,11 @@ WHERE otro <> yo AND mia.estrellas >= 4 AND suya.estrellas >= 4
 WITH DISTINCT yo, otro
 MATCH (otro)-[otra:CALIFICO]->(recomendada:Pelicula)
 WHERE otra.estrellas >= 4 AND NOT (yo)-[:CALIFICO]->(recomendada)
-RETURN recomendada.titulo AS pelicula,
+RETURN recomendada.id AS pelicula_id,
+       recomendada.titulo AS pelicula,
        count(otro) AS usuarios_parecidos,
        round(avg(otra.estrellas), 2) AS promedio
-ORDER BY usuarios_parecidos DESC, promedio DESC, pelicula
+ORDER BY usuarios_parecidos DESC, promedio DESC, pelicula, pelicula_id
 LIMIT $limite
 """
 
@@ -100,20 +101,25 @@ LIMIT $limite
 # Solo entran las películas con al menos una calificación: sin votos no hay
 # promedio que ordenar. El empate se rompe por votos y después por título, para
 # que el resultado no dependa del plan de ejecución.
+# Se agrupa por el nodo, no por el título: si dos películas se llaman igual
+# (Dune 1984 y Dune 2021) cada una tiene su promedio y su conteo. El id sale en
+# el resultado para que la app no tenga que buscar por título.
 TOP_POR_GENERO = """
 MATCH (p:Pelicula)-[:DE_GENERO]->(:Genero {nombre: $genero})
 MATCH (p)<-[c:CALIFICO]-(:Usuario)
-RETURN p.titulo AS titulo,
+RETURN p.id AS pelicula_id,
+       p.titulo AS titulo,
        round(avg(c.estrellas), 2) AS promedio,
        count(c) AS votos
-ORDER BY promedio DESC, votos DESC, titulo
+ORDER BY promedio DESC, votos DESC, titulo, pelicula_id
 LIMIT $limite
 """
 
-# Camino más corto de persona a persona. El tope `*..12` es obligatorio: sin él
-# el recorrido se escapa por los géneros y deja de ser "seis grados". Se recorre
-# sin dirección porque las relaciones van de persona a película y de película a
-# persona. Si no hay camino la consulta no devuelve filas (no es un error).
+# Camino más corto de persona a persona. El patrón ya está restringido a
+# ACTUO_EN|DIRIGIO, así que no puede escaparse por los géneros; el tope `*..12`
+# solo acota la búsqueda para conservar la idea de "seis grados" y no recorrer el
+# grafo entero. Se recorre sin dirección porque las relaciones van de persona a
+# película y de película a persona. Si no hay camino, no devuelve filas.
 CAMINO_ENTRE_PERSONAS = """
 MATCH (a:Persona {nombre: $origen}), (b:Persona {nombre: $destino})
 MATCH camino = shortestPath((a)-[:ACTUO_EN|DIRIGIO*..12]-(b))
@@ -122,17 +128,44 @@ RETURN [n IN nodes(camino) | coalesce(n.nombre, n.titulo)] AS camino,
 """
 
 # Vecindad por grados de separación. Las personas solo se tocan a través de una
-# película, así que un grado son dos saltos: el patrón va de persona en persona
-# en longitudes pares (`*2..6`) y el filtro corta en `$grados * 2` (1 a 3).
-VECINDAD = """
+# película, así que un grado son dos saltos y el patrón va de persona en persona
+# en longitudes pares. Hay una variante por grado: así el patrón no enumera
+# caminos más largos de lo pedido (con 35 películas no se nota, pero el tope es
+# lo que se defiende en la demo). `min()` se queda con la distancia más corta
+# cuando una persona se alcanza por varios caminos.
+VECINDAD_1 = """
 MATCH (a:Persona {nombre: $nombre})
-MATCH ruta = (a)-[:ACTUO_EN|DIRIGIO*2..6]-(otra:Persona)
-WHERE otra <> a AND length(ruta) <= $grados * 2
+MATCH ruta = (a)-[:ACTUO_EN|DIRIGIO*2..2]-(otra:Persona)
+WHERE otra <> a
 WITH otra, min(length(ruta)) AS saltos
 RETURN otra.nombre AS persona, saltos / 2 AS distancia
 ORDER BY distancia, persona
 LIMIT $limite
 """
+
+VECINDAD_2 = """
+MATCH (a:Persona {nombre: $nombre})
+MATCH ruta = (a)-[:ACTUO_EN|DIRIGIO*2..4]-(otra:Persona)
+WHERE otra <> a
+WITH otra, min(length(ruta)) AS saltos
+RETURN otra.nombre AS persona, saltos / 2 AS distancia
+ORDER BY distancia, persona
+LIMIT $limite
+"""
+
+VECINDAD_3 = """
+MATCH (a:Persona {nombre: $nombre})
+MATCH ruta = (a)-[:ACTUO_EN|DIRIGIO*2..6]-(otra:Persona)
+WHERE otra <> a
+WITH otra, min(length(ruta)) AS saltos
+RETURN otra.nombre AS persona, saltos / 2 AS distancia
+ORDER BY distancia, persona
+LIMIT $limite
+"""
+
+# Grado pedido -> Cypher con el tope exacto. Las claves son las que acepta
+# `vecindad` (1 a 3).
+VECINDAD_POR_GRADOS = {1: VECINDAD_1, 2: VECINDAD_2, 3: VECINDAD_3}
 
 # Amigos de amigos: usuarios que siguen a alguien que yo sigo, sin contar a los
 # que ya sigo ni a mí mismo. `count(DISTINCT amigo)` mide los amigos en común,
@@ -149,13 +182,15 @@ LIMIT $limite
 """
 
 # Nombre legible -> Cypher, en el orden del catálogo. La app del PR 7 lo usa para
-# mostrar la consulta exacta que produjo cada resultado.
+# mostrar la consulta exacta que produjo cada resultado. En vecindad se muestra
+# la variante de 3 grados, que es la más amplia; el módulo elige la más ajustada
+# al grado pedido.
 _CATALOGO = {
     "Recomendación colaborativa": RECOMENDAR,
     "Películas parecidas": PELICULAS_PARECIDAS,
     "Top por género": TOP_POR_GENERO,
     "Camino más corto entre personas": CAMINO_ENTRE_PERSONAS,
-    "Vecindad de una persona": VECINDAD,
+    "Vecindad de una persona": VECINDAD_3,
     "A quién seguir": A_QUIEN_SEGUIR,
 }
 
@@ -200,12 +235,13 @@ def _exigir_personas(origen: str, destino: str) -> tuple[str, str]:
 def recomendar(usuario_id: str, limite: int = 10) -> list[dict[str, Any]]:
     """Películas que le gustaron a usuarios con gustos parecidos y no ha visto.
 
-    Devuelve `pelicula`, `usuarios_parecidos` y `promedio` (dos decimales),
-    ordenado por cantidad de usuarios parecidos y después por promedio. Un
-    usuario válido sin coincidencias devuelve `[]`.
+    Devuelve `pelicula_id`, `pelicula`, `usuarios_parecidos` y `promedio` (dos
+    decimales), agrupado por película y ordenado por cantidad de usuarios
+    parecidos y después por promedio. Un usuario válido sin coincidencias
+    devuelve `[]`.
     """
-    usuario_id = _exigir_usuario(usuario_id)
     limite = _limite(limite)
+    usuario_id = _exigir_usuario(usuario_id)
     return leer(RECOMENDAR, id=usuario_id, limite=limite)
 
 
@@ -216,16 +252,17 @@ def peliculas_parecidas(pelicula_id: str, limite: int = 10) -> list[dict[str, An
     `mismo_director` y `generos_comunes`. La fórmula del puntaje es
     `actores_comunes + 2 * mismo_director + generos_comunes`.
     """
-    pelicula_id = _exigir_pelicula(pelicula_id)
     limite = _limite(limite)
+    pelicula_id = _exigir_pelicula(pelicula_id)
     return leer(PELICULAS_PARECIDAS, id=pelicula_id, limite=limite)
 
 
 def top_por_genero(genero: str, limite: int = 10) -> list[dict[str, Any]]:
-    """Mejores películas de un género: `titulo`, `promedio` y `votos`.
+    """Mejores películas de un género: `pelicula_id`, `titulo`, `promedio` y `votos`.
 
     Ordena por promedio descendente y, en caso de empate, por cantidad de votos.
-    Solo aparecen películas calificadas al menos una vez.
+    Agrupa por nodo y no por título, así dos películas con el mismo nombre no se
+    mezclan. Solo aparecen películas calificadas al menos una vez.
     """
     genero = texto(genero, "género")
     limite = _limite(limite)
@@ -237,9 +274,13 @@ def camino_entre_personas(origen: str, destino: str) -> dict[str, Any]:
 
     Devuelve `encontrado`, `saltos` y `camino` (nombres de personas y títulos de
     películas alternados). Si no hay camino dentro de 12 saltos devuelve
-    `encontrado: False`, `saltos: 0` y `camino: []`; no lanza excepción.
+    `encontrado: False`, `saltos: 0` y `camino: []`; no lanza excepción. Si el
+    origen y el destino son la misma persona, el camino es ella misma con 0
+    saltos (el algoritmo de camino más corto no admite extremos iguales).
     """
     origen, destino = _exigir_personas(origen, destino)
+    if origen == destino:
+        return {"encontrado": True, "saltos": 0, "camino": [origen]}
     filas = leer(CAMINO_ENTRE_PERSONAS, origen=origen, destino=destino)
     if not filas:
         return {"encontrado": False, "saltos": 0, "camino": []}
@@ -263,7 +304,7 @@ def vecindad(nombre: str, grados: int = 2, limite: int = 25) -> list[dict[str, A
     limite = _limite(limite)
     if not leer(EXISTE_PERSONA, nombre=nombre)[0]["existe"]:
         raise ValueError(f"No existe la persona {nombre!r}")
-    return leer(VECINDAD, nombre=nombre, grados=grados, limite=limite)
+    return leer(VECINDAD_POR_GRADOS[grados], nombre=nombre, limite=limite)
 
 
 def a_quien_seguir(usuario_id: str, limite: int = 10) -> list[dict[str, Any]]:
@@ -272,6 +313,6 @@ def a_quien_seguir(usuario_id: str, limite: int = 10) -> list[dict[str, Any]]:
     Devuelve `usuario_id`, `nombre` y `amigos_en_comun`, ordenado por amigos en
     común. Nunca incluye al propio usuario ni a quien ya sigue.
     """
-    usuario_id = _exigir_usuario(usuario_id)
     limite = _limite(limite)
+    usuario_id = _exigir_usuario(usuario_id)
     return leer(A_QUIEN_SEGUIR, id=usuario_id, limite=limite)
