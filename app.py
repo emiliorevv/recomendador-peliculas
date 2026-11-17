@@ -23,6 +23,7 @@ from collections.abc import Callable
 from typing import Any
 
 import streamlit as st
+from neo4j.exceptions import DriverError, Neo4jError
 from src.conexion import leer, verificar_conexion
 from src.consultas import (
     VECINDAD_POR_GRADOS,
@@ -77,6 +78,22 @@ PERSONA_EJEMPLO = "Tom Hanks"
 PERSONA_DESTINO_EJEMPLO = "Scarlett Johansson"
 GENERO_EJEMPLO = "Ciencia ficción"
 
+# Claves de los formularios de alta: se vacían a mano después de una escritura
+# exitosa, no con `clear_on_submit`, que también borra lo escrito cuando la
+# validación falla.
+ALTA_PELICULA = (
+    "alta_titulo",
+    "alta_anio",
+    "alta_duracion",
+    "alta_generos",
+    "alta_director",
+    "alta_actores",
+)
+ALTA_USUARIO = ("alta_usuario_nombre",)
+
+# Centinela para distinguir un fallo ya avisado de un `None` o un `False` legítimos.
+FALLO = object()
+
 # Nombres de personas para llenar los selectores de caminos y vecindad. No es
 # una de las seis consultas del catálogo: es el índice que alimenta los menús.
 CONSULTA_PERSONAS = "MATCH (p:Persona) RETURN p.nombre AS nombre ORDER BY p.nombre"
@@ -92,6 +109,39 @@ def _milisegundos(funcion: Callable[..., Any], *args: Any, **kwargs: Any) -> tup
     inicio = time.perf_counter()
     resultado = funcion(*args, **kwargs)
     return resultado, (time.perf_counter() - inicio) * 1000
+
+
+def accion(funcion: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+    """Llama al backend y traduce sus errores a un `st.error`, sin traceback.
+
+    `ValueError` es un dato rechazado y se muestra tal cual lo escribió `src/`.
+    `DriverError` y `Neo4jError` son fallos de AuraDB (instancia pausada, red
+    caída, sesión vencida): se explican en pantalla. Cualquier otra excepción se
+    deja subir, porque es un bug nuestro y no un problema de la demo.
+
+    Devuelve `FALLO` cuando ya mostró el error, para que quien llama corte el
+    flujo sin confundirlo con un `None` o un `False` legítimos.
+    """
+    try:
+        return funcion(*args, **kwargs)
+    except ValueError as error:
+        st.error(str(error))
+    except (DriverError, Neo4jError) as error:
+        st.error(
+            f"No se pudo hablar con AuraDB: {error.__class__.__name__}. "
+            "Revisa que la instancia esté activa."
+        )
+    return FALLO
+
+
+def limpiar_formulario(claves: tuple[str, ...]) -> None:
+    """Vacía el estado de los widgets de un formulario.
+
+    Se llama al empezar la sección, antes de que los widgets existan: al no
+    quedar valor guardado, cada widget vuelve a nacer con su valor inicial.
+    """
+    for clave in claves:
+        st.session_state.pop(clave, None)
 
 
 def _indice(opciones: list[str], preferido: str) -> int:
@@ -111,12 +161,11 @@ def _lista_de_nombres(valor: str) -> list[str]:
 
 
 def leer_datos(funcion: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
-    """Corre una lectura del backend y muestra un `st.error` claro si la base falla."""
-    try:
-        return funcion(*args, **kwargs)
-    except Exception as error:  # el driver lanza errores de red y de servidor
-        st.error(f"No se pudo leer de la base: {error.__class__.__name__}: {error}")
+    """Lee del backend al dibujar una sección; si falla, corta la vista con el aviso."""
+    resultado = accion(funcion, *args, **kwargs)
+    if resultado is FALLO:
         st.stop()
+    return resultado
 
 
 def avisar(mensaje: str) -> None:
@@ -179,14 +228,12 @@ def consulta_de_grafo(
 ) -> Any:
     """Corre una consulta del catálogo, muestra su Cypher y sus ms, y devuelve el resultado.
 
-    Devuelve `None` si el backend rechaza los datos; para la vecindad se puede
-    pasar el Cypher exacto del grado pedido, porque el catálogo documenta la
-    variante de 3 grados.
+    Devuelve `None` si la consulta falló; el mensaje ya se mostró con `accion`.
+    Para la vecindad se puede pasar el Cypher exacto del grado pedido, porque el
+    catálogo documenta la variante de 3 grados.
     """
-    try:
-        resultado, milisegundos = _milisegundos(funcion, *args, **kwargs)
-    except ValueError as error:
-        st.error(str(error))
+    resultado, milisegundos = _milisegundos(accion, funcion, *args, **kwargs)
+    if resultado is FALLO:
         return None
     mostrar_cypher(cypher or catalogo()[nombre], milisegundos, parametros)
     return resultado
@@ -268,6 +315,8 @@ def selector_persona(
 def seccion_peliculas() -> None:
     """Tabla con búsqueda, detalle y CRUD de películas."""
     st.header("Películas")
+    if st.session_state.pop("limpiar_alta_pelicula", False):
+        limpiar_formulario(ALTA_PELICULA)
     peliculas = leer_datos(listar_peliculas)
     generos_conocidos = sorted({genero for p in peliculas for genero in p["generos"]})
 
@@ -312,7 +361,7 @@ def seccion_peliculas() -> None:
 
     if operacion == "Agregar":
         st.subheader("Agregar una película")
-        with st.form("alta_pelicula", clear_on_submit=True):
+        with st.form("alta_pelicula"):
             titulo = st.text_input("Título", placeholder="El origen", key="alta_titulo")
             izquierda, derecha = st.columns(2)
             anio = izquierda.number_input(
@@ -348,21 +397,21 @@ def seccion_peliculas() -> None:
             guardar = st.form_submit_button("Agregar película", type="primary")
 
         if guardar:
-            try:
-                nueva, milisegundos = _milisegundos(
-                    crear_pelicula,
-                    titulo=titulo,
-                    anio=anio,
-                    duracion=duracion,
-                    generos=generos,
-                    director=director,
-                    actores=_lista_de_nombres(actores),
-                )
-            except ValueError as error:
-                st.error(str(error))
-            else:
-                avisar(f"Se agregó {nueva['titulo']} ({nueva['anio']}) en {milisegundos:.0f} ms")
-                refrescar()
+            nueva, milisegundos = _milisegundos(
+                accion,
+                crear_pelicula,
+                titulo=titulo,
+                anio=anio,
+                duracion=duracion,
+                generos=generos,
+                director=director,
+                actores=_lista_de_nombres(actores),
+            )
+            if nueva is FALLO:
+                return
+            st.session_state["limpiar_alta_pelicula"] = True
+            avisar(f"Se agregó {nueva['titulo']} ({nueva['anio']}) en {milisegundos:.0f} ms")
+            refrescar()
 
     elif not peliculas:
         st.info("No hay películas para esta operación.")
@@ -374,7 +423,9 @@ def seccion_peliculas() -> None:
             "detalle_pelicula",
             "El detalle trae géneros, director y reparto completo.",
         )
-        detalle = leer_datos(obtener_pelicula, pelicula_id)
+        detalle = accion(obtener_pelicula, pelicula_id)
+        if detalle is FALLO:
+            return
         if detalle is None:
             st.warning("Esa película ya no está en la base.")
             return
@@ -393,10 +444,14 @@ def seccion_peliculas() -> None:
             "editar_pelicula",
             "Los cambios se guardan sobre el mismo id, que es lo que califican los usuarios.",
         )
-        actual = leer_datos(obtener_pelicula, pelicula_id)
+        actual = accion(obtener_pelicula, pelicula_id)
+        if actual is FALLO:
+            return
         if actual is None:
             st.warning("Esa película ya no está en la base.")
             return
+
+        reparto_original = ", ".join(actual["actores"])
 
         st.subheader(f"Editar {actual['titulo']} ({actual['anio']})")
         with st.form(f"form_editar_{pelicula_id}"):
@@ -436,32 +491,33 @@ def seccion_peliculas() -> None:
             )
             actores = st.text_input(
                 "Actores separados por coma",
-                value=", ".join(actual["actores"]),
+                value=reparto_original,
                 key=f"editar_actores_{pelicula_id}",
                 help="Reemplaza el reparto actual. Vacío deja la película sin actores.",
             )
             guardar = st.form_submit_button("Guardar cambios", type="primary")
 
         if guardar:
-            try:
-                cambiada, milisegundos = _milisegundos(
-                    actualizar_pelicula,
-                    pelicula_id,
-                    titulo=titulo,
-                    anio=anio,
-                    duracion=duracion,
-                    generos=generos,
-                    director=director,
-                    actores=_lista_de_nombres(actores),
-                )
-            except ValueError as error:
-                st.error(str(error))
-            else:
-                avisar(
-                    f"Se actualizó {cambiada['titulo']} ({cambiada['anio']}) "
-                    f"en {milisegundos:.0f} ms"
-                )
-                refrescar()
+            # Si el campo no se tocó va `None` (= no cambiar), así un nombre con
+            # coma no se parte en dos personas al editar otro campo.
+            actores_nuevos = None if actores == reparto_original else _lista_de_nombres(actores)
+            cambiada, milisegundos = _milisegundos(
+                accion,
+                actualizar_pelicula,
+                pelicula_id,
+                titulo=titulo,
+                anio=anio,
+                duracion=duracion,
+                generos=generos,
+                director=director,
+                actores=actores_nuevos,
+            )
+            if cambiada is FALLO:
+                return
+            avisar(
+                f"Se actualizó {cambiada['titulo']} ({cambiada['anio']}) en {milisegundos:.0f} ms"
+            )
+            refrescar()
 
     elif operacion == "Eliminar":
         pelicula_id = selector_pelicula(
@@ -470,7 +526,12 @@ def seccion_peliculas() -> None:
             "eliminar_pelicula",
             "El borrado arrastra sus calificaciones y relaciones (DETACH DELETE).",
         )
-        etiqueta = next(f"{p['titulo']} ({p['anio']})" for p in peliculas if p["id"] == pelicula_id)
+        etiqueta = next(
+            (f"{p['titulo']} ({p['anio']})" for p in peliculas if p["id"] == pelicula_id), None
+        )
+        if etiqueta is None:
+            st.warning("Esa película ya no está en la base.")
+            return
         confirmacion = st.text_input(
             "Para confirmar, escribe el id de la película",
             key=f"confirmar_borrar_{pelicula_id}",
@@ -481,13 +542,11 @@ def seccion_peliculas() -> None:
             disabled=confirmacion.strip() != pelicula_id,
             help="El botón se habilita cuando el id escrito coincide.",
         ):
-            try:
-                eliminar_pelicula(pelicula_id)
-            except ValueError as error:
-                st.error(str(error))
-            else:
-                avisar(f"Se eliminó {etiqueta}")
-                refrescar()
+            borrada = accion(eliminar_pelicula, pelicula_id)
+            if borrada is FALLO:
+                return
+            avisar(f"Se eliminó {etiqueta}")
+            refrescar()
 
 
 # --------------------------------------------------------------------------- #
@@ -498,6 +557,8 @@ def seccion_peliculas() -> None:
 def seccion_usuarios() -> None:
     """Listado y CRUD de usuarios, calificaciones y seguidores."""
     st.header("Usuarios")
+    if st.session_state.pop("limpiar_alta_usuario", False):
+        limpiar_formulario(ALTA_USUARIO)
     usuarios = leer_datos(listar_usuarios)
 
     operacion = st.radio(
@@ -513,18 +574,17 @@ def seccion_usuarios() -> None:
             "Todavía no hay usuarios en la base.",
         )
         st.subheader("Crear un usuario")
-        with st.form("alta_usuario", clear_on_submit=True):
+        with st.form("alta_usuario"):
             nombre = st.text_input("Nombre", placeholder="Emilia", key="alta_usuario_nombre")
             crear = st.form_submit_button("Crear usuario", type="primary")
             st.caption("El id lo asigna la base: el siguiente libre (u13, u14, …).")
         if crear:
-            try:
-                usuario = crear_usuario(nombre)
-            except ValueError as error:
-                st.error(str(error))
-            else:
-                avisar(f"Se creó {usuario['nombre']} con el id {usuario['id']}")
-                refrescar()
+            usuario = accion(crear_usuario, nombre)
+            if usuario is FALLO:
+                return
+            st.session_state["limpiar_alta_usuario"] = True
+            avisar(f"Se creó {usuario['nombre']} con el id {usuario['id']}")
+            refrescar()
         return
 
     if not usuarios:
@@ -534,7 +594,10 @@ def seccion_usuarios() -> None:
     if operacion == "Renombrar y borrar":
         st.subheader("Renombrar")
         usuario_id = selector_usuario("Usuario", usuarios, "renombrar_usuario")
-        actual = next(u for u in usuarios if u["id"] == usuario_id)
+        actual = next((u for u in usuarios if u["id"] == usuario_id), None)
+        if actual is None:
+            st.warning("Ese usuario ya no está en la base.")
+            return
         with st.form(f"form_renombrar_{usuario_id}"):
             nombre = st.text_input(
                 "Nombre nuevo",
@@ -543,13 +606,11 @@ def seccion_usuarios() -> None:
             )
             guardar = st.form_submit_button("Guardar el nombre", type="primary")
         if guardar:
-            try:
-                cambiado = renombrar_usuario(usuario_id, nombre)
-            except ValueError as error:
-                st.error(str(error))
-            else:
-                avisar(f"{actual['nombre']} ahora se llama {cambiado['nombre']}")
-                refrescar()
+            cambiado = accion(renombrar_usuario, usuario_id, nombre)
+            if cambiado is FALLO:
+                return
+            avisar(f"{actual['nombre']} ahora se llama {cambiado['nombre']}")
+            refrescar()
 
         st.divider()
         st.subheader("Borrar")
@@ -559,7 +620,10 @@ def seccion_usuarios() -> None:
             "borrar_usuario",
             "Se borran también sus calificaciones y sus relaciones de seguimiento.",
         )
-        borrar = next(u for u in usuarios if u["id"] == borrar_id)
+        borrar = next((u for u in usuarios if u["id"] == borrar_id), None)
+        if borrar is None:
+            st.warning("Ese usuario ya no está en la base.")
+            return
         confirmacion = st.text_input(
             "Para confirmar, escribe el nombre del usuario",
             key=f"confirmar_borrar_usuario_{borrar_id}",
@@ -570,13 +634,11 @@ def seccion_usuarios() -> None:
             disabled=confirmacion.strip() != borrar["nombre"],
             help="El botón se habilita cuando el nombre escrito coincide.",
         ):
-            try:
-                eliminar_usuario(borrar_id)
-            except ValueError as error:
-                st.error(str(error))
-            else:
-                avisar(f"Se eliminó {borrar['nombre']} ({borrar['id']})")
-                refrescar()
+            eliminado = accion(eliminar_usuario, borrar_id)
+            if eliminado is FALLO:
+                return
+            avisar(f"Se eliminó {borrar['nombre']} ({borrar['id']})")
+            refrescar()
 
     elif operacion == "Calificaciones":
         peliculas = leer_datos(listar_peliculas)
@@ -596,19 +658,20 @@ def seccion_usuarios() -> None:
             help="1 es la peor nota y 5 la mejor. Calificar de nuevo actualiza la relación.",
         )
         if st.button("Calificar o actualizar", type="primary"):
-            try:
-                fila, milisegundos = _milisegundos(calificar, usuario_id, pelicula_id, estrellas)
-            except ValueError as error:
-                st.error(str(error))
-            else:
-                avisar(
-                    f"{fila['titulo']} quedó con {fila['estrellas']} estrellas "
-                    f"({milisegundos:.0f} ms)"
-                )
-                refrescar()
+            fila, milisegundos = _milisegundos(
+                accion, calificar, usuario_id, pelicula_id, estrellas
+            )
+            if fila is FALLO:
+                return
+            avisar(
+                f"{fila['titulo']} quedó con {fila['estrellas']} estrellas ({milisegundos:.0f} ms)"
+            )
+            refrescar()
 
         st.divider()
-        calificaciones = leer_datos(calificaciones_de, usuario_id)
+        calificaciones = accion(calificaciones_de, usuario_id)
+        if calificaciones is FALLO:
+            return
         st.subheader("Calificaciones del usuario")
         tabla(
             [
@@ -627,15 +690,21 @@ def seccion_usuarios() -> None:
                 "Calificación para quitar",
                 [c["pelicula_id"] for c in calificaciones],
                 format_func=lambda pid: next(
-                    f"{c['titulo']} ({c['estrellas']} ★)"
-                    for c in calificaciones
-                    if c["pelicula_id"] == pid
+                    (
+                        f"{c['titulo']} ({c['estrellas']} ★)"
+                        for c in calificaciones
+                        if c["pelicula_id"] == pid
+                    ),
+                    pid,
                 ),
                 key="quitar_calificacion",
                 help="Solo se borra la relación CALIFICO de ese usuario con esa película.",
             )
             if st.button("Quitar la calificación"):
-                if quitar_calificacion(usuario_id, quitar):
+                quitada = accion(quitar_calificacion, usuario_id, quitar)
+                if quitada is FALLO:
+                    return
+                if quitada:
                     avisar("Se quitó la calificación")
                     refrescar()
                 else:
@@ -655,18 +724,20 @@ def seccion_usuarios() -> None:
                 key=f"seguir_a_{usuario_id}",
             )
             if st.button("Seguir", type="primary"):
-                try:
-                    seguir(usuario_id, seguido_id)
-                except ValueError as error:
-                    st.error(str(error))
-                else:
-                    avisar(f"{etiquetas[seguido_id]} quedó seguido")
-                    refrescar()
+                seguimiento = accion(seguir, usuario_id, seguido_id)
+                if seguimiento is FALLO:
+                    return
+                avisar(f"{etiquetas[seguido_id]} quedó seguido")
+                refrescar()
         else:
             st.caption("No hay otro usuario al que seguir.")
 
-        sigue, _ = _milisegundos(a_quien_sigue, usuario_id)
-        seguidores, _ = _milisegundos(seguidores_de, usuario_id)
+        sigue = accion(a_quien_sigue, usuario_id)
+        if sigue is FALLO:
+            return
+        seguidores = accion(seguidores_de, usuario_id)
+        if seguidores is FALLO:
+            return
         izquierda, derecha = st.columns(2)
         with izquierda:
             st.write("**A quién sigue**")
@@ -690,7 +761,10 @@ def seccion_usuarios() -> None:
                 key=f"dejar_de_seguir_{usuario_id}",
             )
             if st.button("Dejar de seguir"):
-                if dejar_de_seguir(usuario_id, dejar_id):
+                dejado = accion(dejar_de_seguir, usuario_id, dejar_id)
+                if dejado is FALLO:
+                    return
+                if dejado:
                     avisar(f"Dejó de seguir a {etiquetas_sigue[dejar_id]}")
                     refrescar()
                 else:
