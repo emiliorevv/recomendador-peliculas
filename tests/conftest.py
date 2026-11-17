@@ -8,6 +8,7 @@ AuraDB: las pruebas borran datos y no deben tocar la instancia de la demo.
 import os
 
 import pytest
+import src.conexion as conexion
 from neo4j import GraphDatabase
 
 TEST_URI = os.getenv("NEO4J_TEST_URI")
@@ -66,3 +67,24 @@ def grafo_limpio(driver):
 
     with driver.session() as session:
         session.run("MATCH (n) DETACH DELETE n").consume()
+
+
+@pytest.fixture
+def base_de_pruebas(monkeypatch, grafo_limpio):
+    """Redirige el driver de la app al Neo4j de pruebas y deja el grafo limpio.
+
+    `load_dotenv` no sobreescribe variables ya definidas, así que el
+    `monkeypatch` gana sobre el `.env` (que apunta a AuraDB). El driver se cierra
+    antes y después para que no quede abierto con las credenciales de la base
+    real. Si no hay `NEO4J_TEST_URI`, la fixture `driver` omite la prueba antes
+    de llegar aquí, así que nunca se apunta a Aura.
+    """
+    monkeypatch.setenv("NEO4J_URI", TEST_URI)
+    monkeypatch.setenv("NEO4J_USERNAME", TEST_USER)
+    monkeypatch.setenv("NEO4J_PASSWORD", TEST_PASSWORD)
+    monkeypatch.setenv("NEO4J_DATABASE", "neo4j")
+    conexion.cerrar_driver()
+
+    yield grafo_limpio
+
+    conexion.cerrar_driver()

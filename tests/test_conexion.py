@@ -61,6 +61,62 @@ def test_cerrar_driver_limpia_el_singleton_si_close_falla(monkeypatch, sin_drive
     assert conexion._driver is None
 
 
+@pytest.fixture
+def sin_ssl_cert_file():
+    """Quita SSL_CERT_FILE y la deja como estaba, aunque la prueba falle.
+
+    La función escribe `os.environ` directo (no pasa por `monkeypatch`), así que
+    sin esto la variable quedaría puesta para el resto de la sesión de pytest.
+    """
+    original = os.environ.pop("SSL_CERT_FILE", None)
+    try:
+        yield
+    finally:
+        if original is None:
+            os.environ.pop("SSL_CERT_FILE", None)
+        else:
+            os.environ["SSL_CERT_FILE"] = original
+
+
+def _contexto_sin_ca() -> SimpleNamespace:
+    return SimpleNamespace(get_ca_certs=lambda: [])
+
+
+def test_configurar_certificados_usa_certifi_si_no_hay_ca(monkeypatch, sin_ssl_cert_file):
+    """Sin SSL_CERT_FILE y sin CAs del sistema, apunta el trust store a certifi."""
+    certificados = pytest.importorskip("certifi")
+    monkeypatch.setattr(conexion.ssl, "create_default_context", _contexto_sin_ca)
+
+    conexion._configurar_certificados()
+
+    assert os.environ["SSL_CERT_FILE"] == certificados.where()
+
+
+def test_configurar_certificados_no_toca_nada_si_el_sistema_tiene_ca(
+    monkeypatch, sin_ssl_cert_file
+):
+    """Con CAs del sistema (proxy corporativo) se respeta el trust store: no se pisa."""
+    monkeypatch.setattr(
+        conexion.ssl,
+        "create_default_context",
+        lambda: SimpleNamespace(get_ca_certs=lambda: ["ca-del-proxy"]),
+    )
+
+    conexion._configurar_certificados()
+
+    assert "SSL_CERT_FILE" not in os.environ
+
+
+def test_configurar_certificados_respeta_el_valor_del_usuario(monkeypatch):
+    """Si ya hay SSL_CERT_FILE, no se pisa: puede ser una configuración a propósito."""
+    monkeypatch.setenv("SSL_CERT_FILE", "/ruta/a/mis/certificados.pem")
+    monkeypatch.setattr(conexion.ssl, "create_default_context", _contexto_sin_ca)
+
+    conexion._configurar_certificados()
+
+    assert os.environ["SSL_CERT_FILE"] == "/ruta/a/mis/certificados.pem"
+
+
 def test_obtener_driver_crea_uno_solo_entre_hilos(monkeypatch, sin_driver):
     """Varios hilos pidiendo el driver a la vez comparten una única instancia."""
 

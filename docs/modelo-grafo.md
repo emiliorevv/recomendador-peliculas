@@ -37,6 +37,7 @@ CREATE INDEX pelicula_titulo     IF NOT EXISTS FOR (p:Pelicula) ON (p.titulo);
 
 - Etiquetas en singular y PascalCase; relaciones en MAYÚSCULAS con verbo.
 - `MERGE` para todo lo que no debe duplicarse (géneros, personas, calificaciones).
+- Varias escrituras que van juntas corren en una sola transacción (`sesion.execute_write`), porque el driver reintenta ante fallos transitorios y las escrituras son idempotentes (`MERGE`).
 - `DETACH DELETE` al borrar un nodo, para no dejar relaciones colgadas.
 - Consultas siempre con parámetros, para evitar inyección y reutilizar el plan de ejecución.
 - Patrones de longitud variable siempre con tope (`*..12`) para no recorrer todo el grafo.

@@ -1,18 +1,13 @@
 """Pruebas del seed de datos iniciales.
 
-Las de integración corren contra el Neo4j de pruebas de `NEO4J_TEST_URI`. La
-fixture `base_de_pruebas` redirige `src.conexion` a esa base antes de que se cree
-el driver: `load_dotenv` no sobreescribe variables ya definidas, así que el
-`monkeypatch` gana sobre el `.env` (que apunta a AuraDB). El driver se cierra
-antes y después para que no quede abierto con credenciales de la base real.
+Las de integración corren contra el Neo4j de pruebas de `NEO4J_TEST_URI` con la
+fixture `base_de_pruebas` de `conftest.py`: redirige `src.conexion` a esa base y
+deja el grafo limpio, así que nunca tocan AuraDB.
 """
 
 from __future__ import annotations
 
-import os
-
 import pytest
-import src.conexion as conexion
 from seed import seed
 from seed.seed import (
     esperados,
@@ -36,20 +31,6 @@ ESPERADOS_DEL_ENTREGABLE = {
     "califico": 95,
     "sigue": 36,
 }
-
-
-@pytest.fixture
-def base_de_pruebas(monkeypatch, grafo_limpio):
-    """Redirige el driver de la app al Neo4j de pruebas y deja el grafo limpio."""
-    monkeypatch.setenv("NEO4J_URI", os.environ["NEO4J_TEST_URI"])
-    monkeypatch.setenv("NEO4J_USERNAME", os.environ.get("NEO4J_TEST_USER", "neo4j"))
-    monkeypatch.setenv("NEO4J_PASSWORD", os.environ.get("NEO4J_TEST_PASSWORD", "testpassword"))
-    monkeypatch.setenv("NEO4J_DATABASE", "neo4j")
-    conexion.cerrar_driver()
-
-    yield grafo_limpio
-
-    conexion.cerrar_driver()
 
 
 def test_los_json_tienen_los_datos_del_entregable():

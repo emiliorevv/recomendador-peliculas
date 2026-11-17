@@ -49,6 +49,7 @@ Propiedades, restricciones e índices en [docs/modelo-grafo.md](docs/modelo-graf
 - Películas: crear (con géneros, director y actores), consultar, actualizar y eliminar.
 - Usuarios: crear, consultar, renombrar y eliminar.
 - Calificaciones: calificar (crea o actualiza), ver las de un usuario y quitar una.
+- Seguidores: seguir, dejar de seguir y ver a quién sigue cada usuario y quiénes lo siguen.
 
 **Consultas propias del grafo** (catálogo completo en [docs/catalogo-consultas.md](docs/catalogo-consultas.md))
 - Recomendación colaborativa: lo que les gustó a usuarios con gustos parecidos (recorrido de 3 saltos).
@@ -88,9 +89,10 @@ Cada PR es una rama desde `main`, chica y revisable, y se mergea antes de empeza
 ├── requirements.txt       # dependencias de la app
 ├── requirements-dev.txt   # dependencias de desarrollo (pytest, Ruff)
 ├── src/
-│   ├── conexion.py        # driver, credenciales, leer/escribir (PR 3)
+│   ├── conexion.py        # driver, credenciales, leer/escribir, transacciones (PR 3)
 │   ├── peliculas.py       # CRUD de películas (PR 5)
 │   ├── usuarios.py        # CRUD de usuarios y calificaciones (PR 5)
+│   ├── validacion.py      # validaciones compartidas del CRUD (PR 5)
 │   └── consultas.py       # recomendaciones, caminos y vecindad (PR 6)
 ├── seed/
 │   ├── esquema.cypher     # restricciones e índices (PR 3)
@@ -173,8 +175,10 @@ Al final imprime los conteos del grafo y valida según el modo:
 > anterior tuviera datos que las violaran.
 
 > Si al conectar aparece `SSL: CERTIFICATE_VERIFY_FAILED` o `Unable to retrieve routing information`
-> en macOS, al intérprete le faltan los certificados raíz: corre `Install Certificates.command` del
-> instalador de Python o exporta `SSL_CERT_FILE=$(python -c "import certifi;print(certifi.where())")`.
+> en macOS, al intérprete le faltan los certificados raíz. `src/conexion.py` ya apunta
+> `SSL_CERT_FILE` al bundle de `certifi` cuando la variable no está definida **y** el contexto TLS
+> del sistema no tiene ninguna CA, así que no hay que exportar nada; si el sistema sí tiene CAs
+> (por ejemplo la de un proxy corporativo) o se define `SSL_CERT_FILE` a mano, no se toca nada.
 
 ### Pruebas y estilo
 
