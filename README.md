@@ -76,9 +76,9 @@ Cada PR es una rama desde `main`, chica y revisable, y se mergea antes de empeza
 
 ## Entregables del enunciado
 
-- [ ] **A. PDF** con: introducción y dominio, justificación del paradigma, arquitectura (diagrama de bloques), diseño del modelo (diagrama del grafo con etiquetas, propiedades y relaciones con dirección) y catálogo de consultas. Fuente en `docs/reporte/` (PR 8).
-- [ ] **B. Código** en este repo: modular y documentado, README con requisitos, instalación y ejecución, y script de seed (PRs 2 a 7).
-- [ ] **Demo** de 4 minutos conectada a AuraDB y **defensa** de 4 a 6 minutos ([docs/demo-y-defensa.md](docs/demo-y-defensa.md), PR 8).
+- [x] **A. PDF** con: introducción y dominio, justificación del paradigma, arquitectura (diagrama de bloques), diseño del modelo (diagrama del grafo con etiquetas, propiedades y relaciones con dirección) y catálogo de consultas. Fuente en [`docs/reporte/`](docs/reporte/) y PDF en [`reporte.pdf`](docs/reporte/reporte.pdf) (PR 8).
+- [x] **B. Código** en este repo: modular y documentado, README con requisitos, instalación y ejecución, y script de seed (PRs 2 a 7).
+- [x] **Demo** de 4 minutos conectada a AuraDB y **defensa** de 4 a 6 minutos; guion y preguntas en [docs/demo-y-defensa.md](docs/demo-y-defensa.md) (PR 8).
 
 ## Estructura del repo
 
@@ -107,9 +107,12 @@ Cada PR es una rama desde `main`, chica y revisable, y se mergea antes de empeza
 │   ├── 02-justificacion.md
 │   ├── modelo-grafo.md
 │   ├── catalogo-consultas.md
-│   ├── demo-y-defensa.md
+│   ├── demo-y-defensa.md  # guion de la demo y preguntas de la defensa
 │   ├── adr/
-│   └── reporte/           # fuente y PDF final
+│   └── reporte/
+│       ├── reporte.md     # fuente legible del reporte
+│       ├── build_pdf.py   # genera el PDF con reportlab
+│       └── reporte.pdf    # entregable A
 └── .github/
     ├── pull_request_template.md
     └── workflows/ci.yml   # PR 2
@@ -179,6 +182,16 @@ Al final imprime los conteos del grafo y valida según el modo:
 > `SSL_CERT_FILE` al bundle de `certifi` cuando la variable no está definida **y** el contexto TLS
 > del sistema no tiene ninguna CA, así que no hay que exportar nada; si el sistema sí tiene CAs
 > (por ejemplo la de un proxy corporativo) o se define `SSL_CERT_FILE` a mano, no se toca nada.
+
+### Reporte en PDF
+
+```bash
+python docs/reporte/build_pdf.py   # escribe docs/reporte/reporte.pdf
+```
+
+Necesita `reportlab` (está en `requirements-dev.txt`) y las fuentes Arial del sistema en
+`/System/Library/Fonts/Supplemental`. Los dos diagramas se dibujan en el script con cajas,
+elipses y flechas de reportlab; no hay imágenes externas ni Graphviz.
 
 ### Pruebas y estilo
 
