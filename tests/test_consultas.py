@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 from seed import seed
-from src import consultas, usuarios
+from src import consultas, peliculas, usuarios
 
 
 @pytest.fixture
@@ -51,6 +51,7 @@ def test_recomendar_u01_trae_oppenheimer_primero(grafo_del_seed):
     recomendaciones = consultas.recomendar("u01")
 
     assert recomendaciones[0] == {
+        "pelicula_id": "oppenheimer-2023",
         "pelicula": "Oppenheimer",
         "usuarios_parecidos": 3,
         "promedio": 4.33,
@@ -69,6 +70,23 @@ def test_recomendar_u01_trae_oppenheimer_primero(grafo_del_seed):
 def test_recomendar_respeta_el_limite(grafo_del_seed):
     """El límite se pasa como parámetro y corta la lista."""
     assert len(consultas.recomendar("u01", limite=3)) == 3
+
+
+@pytest.mark.integration
+def test_recomendar_no_mezcla_peliculas_con_el_mismo_titulo(grafo_del_seed):
+    """Dos películas homónimas son dos filas: se agrupa por nodo, no por título."""
+    peliculas.crear_pelicula(titulo="Dune", anio=1984, duracion=137, generos=["Ciencia ficción"])
+    peliculas.crear_pelicula(titulo="Dune", anio=2021, duracion=155, generos=["Ciencia ficción"])
+    usuarios.calificar("u02", "dune-1984", 5)
+    usuarios.calificar("u02", "dune-2021", 4)
+
+    dunas = [fila for fila in consultas.recomendar("u01", limite=100) if fila["pelicula"] == "Dune"]
+
+    assert [fila["pelicula_id"] for fila in dunas] == ["dune-1984", "dune-2021"]
+    assert [(fila["usuarios_parecidos"], fila["promedio"]) for fila in dunas] == [
+        (1, 5.0),
+        (1, 4.0),
+    ]
 
 
 @pytest.mark.integration
@@ -121,13 +139,46 @@ def test_top_por_genero_drama_empieza_con_pulp_fiction(grafo_del_seed):
     """Ordena por promedio y desempata por votos; el promedio va a dos decimales."""
     top = consultas.top_por_genero("Drama", limite=3)
 
-    assert top[0] == {"titulo": "Pulp Fiction", "promedio": 4.67, "votos": 3}
+    assert top[0] == {
+        "pelicula_id": "pulp-fiction-1994",
+        "titulo": "Pulp Fiction",
+        "promedio": 4.67,
+        "votos": 3,
+    }
     assert [fila["titulo"] for fila in top] == [
         "Pulp Fiction",
         "The Green Mile",
         "Titanic",
     ]
     assert all(fila["promedio"] == 4.67 and fila["votos"] == 3 for fila in top)
+
+
+@pytest.mark.integration
+def test_top_por_genero_no_mezcla_peliculas_con_el_mismo_titulo(grafo_del_seed):
+    """Dune 1984 y Dune 2021 conservan cada una su promedio y sus votos."""
+    peliculas.crear_pelicula(titulo="Dune", anio=1984, duracion=137, generos=["Drama"])
+    peliculas.crear_pelicula(titulo="Dune", anio=2021, duracion=155, generos=["Drama"])
+    usuarios.calificar("u01", "dune-1984", 5)
+    usuarios.calificar("u02", "dune-2021", 3)
+
+    dunas = [
+        fila for fila in consultas.top_por_genero("Drama", limite=100) if fila["titulo"] == "Dune"
+    ]
+
+    assert dunas == [
+        {
+            "pelicula_id": "dune-1984",
+            "titulo": "Dune",
+            "promedio": 5.0,
+            "votos": 1,
+        },
+        {
+            "pelicula_id": "dune-2021",
+            "titulo": "Dune",
+            "promedio": 3.0,
+            "votos": 1,
+        },
+    ]
 
 
 @pytest.mark.integration
@@ -153,6 +204,16 @@ def test_camino_entre_tom_hanks_y_scarlett_johansson(grafo_del_seed):
 
 
 @pytest.mark.integration
+def test_camino_a_la_misma_persona_es_cero_saltos(grafo_del_seed):
+    """Si origen y destino coinciden, se devuelve la persona sin consultar el camino."""
+    assert consultas.camino_entre_personas("Tom Hanks", "Tom Hanks") == {
+        "encontrado": True,
+        "saltos": 0,
+        "camino": ["Tom Hanks"],
+    }
+
+
+@pytest.mark.integration
 def test_camino_sin_ruta_no_lanza_excepcion(con_persona_aislada):
     """Sin camino devuelve `encontrado: False` y una lista vacía."""
     assert consultas.camino_entre_personas("Tom Hanks", "Persona Aislada") == {
@@ -167,6 +228,8 @@ def test_camino_con_persona_inexistente_falla(grafo_del_seed):
     """Si una de las dos personas no está, es un `ValueError`."""
     with pytest.raises(ValueError, match="No existe la persona 'Nadie Conocido'"):
         consultas.camino_entre_personas("Tom Hanks", "Nadie Conocido")
+    with pytest.raises(ValueError, match="No existe la persona 'Nadie Conocido'"):
+        consultas.camino_entre_personas("Nadie Conocido", "Nadie Conocido")
 
 
 @pytest.mark.integration
