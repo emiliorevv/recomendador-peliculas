@@ -84,7 +84,7 @@ Cada PR es una rama desde `main`, chica y revisable, y se mergea antes de empeza
 
 ```
 .
-├── app.py                 # interfaz Streamlit (PR 7)
+├── app.py                 # interfaz Streamlit de la demo (PR 7)
 ├── pyproject.toml         # configuración de Ruff y pytest
 ├── requirements.txt       # dependencias de la app
 ├── requirements-dev.txt   # dependencias de desarrollo (pytest, Ruff)
@@ -101,6 +101,7 @@ Cada PR es una rama desde `main`, chica y revisable, y se mergea antes de empeza
 ├── data/                  # películas y usuarios en JSON (PR 4)
 ├── tests/
 │   ├── conftest.py        # fixtures y guardas para no tocar la base real
+│   ├── test_app.py        # compila app.py y revisa sus secciones
 │   └── ...                # pytest contra un Neo4j de pruebas
 ├── docs/
 │   ├── 01-problema.md
@@ -127,8 +128,6 @@ Cada PR es una rama desde `main`, chica y revisable, y se mergea antes de empeza
 - **Terminado** = mergeado en `main` y probado contra la instancia de AuraDB.
 
 ## Cómo correrlo
-
-> La interfaz de la app se completa en el PR 7.
 
 ### Requisitos
 
@@ -173,6 +172,38 @@ Al final imprime los conteos del grafo y valida según el modo:
 
 > Con `--reset` el borrado va antes del esquema: así las restricciones se crean aunque el grafo
 > anterior tuviera datos que las violaran.
+
+### Interfaz de la demo
+
+```bash
+streamlit run app.py
+```
+
+Streamlit abre la app en el navegador (http://localhost:8501) y lo primero que muestra es el
+resultado real de `verificar_conexion()`: servidor, versión, base y cantidad de nodos de AuraDB. Si
+la instancia no responde, la app explica el problema en pantalla en vez de romperse con un
+traceback.
+
+El recorrido de la demo, en orden, es este:
+
+1. **Películas**: la tabla trae las 35 del seed; se busca por título (sin importar acentos ni
+   mayúsculas), se abre el detalle con géneros, director y reparto, y se crea, edita o borra una
+   película (el borrado pide confirmación escribiendo el id).
+2. **Usuarios**: se crea un usuario, se renombra, se califica una película de 1 a 5, se quitan
+   calificaciones y se sigue o deja de seguir a otro usuario, viendo siempre a quién sigue y quién
+   lo sigue.
+3. **Recomendaciones**: con `u01` salen las películas que le gustaron a gente con gustos parecidos;
+   con `inception-2010`, las parecidas con el desglose de puntos (actores + 2 × director +
+   géneros); y por género, el top de promedio y votos.
+4. **Caminos**: el camino más corto entre `Tom Hanks` y `Scarlett Johansson` se muestra como cadena
+   legible (`Tom Hanks → The Green Mile → Sam Rockwell → …`), la vecindad de una persona a 1, 2 o 3
+   grados y a quién seguir.
+
+Los selectores se llenan con lo que hay en el grafo y ya vienen con esos valores por defecto, así
+que cada consulta muestra un resultado sin escribir nada. Cada consulta del catálogo lleva su
+Cypher (tomado de `src.consultas.catalogo()`, nunca escrito en la interfaz) y los milisegundos que
+tardó (`time.perf_counter`) dentro de un desplegable. Las escrituras refrescan la vista al
+instante: la app no cachea datos.
 
 > Si al conectar aparece `SSL: CERTIFICATE_VERIFY_FAILED` o `Unable to retrieve routing information`
 > en macOS, al intérprete le faltan los certificados raíz. `src/conexion.py` ya apunta
