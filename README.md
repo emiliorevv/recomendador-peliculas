@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/emiliorevv/recomendador-peliculas/actions/workflows/ci.yml/badge.svg)](https://github.com/emiliorevv/recomendador-peliculas/actions/workflows/ci.yml)
 
-Parcial de Bases de Datos Avanzadas: "Desarrollo e Integración de Aplicaciones con Bases de Datos NoSQL en la Nube". Entrega y exposición: miércoles 18 de noviembre.
+Parcial de Bases de Datos Avanzadas: "Desarrollo e Integración de Aplicaciones con Bases de Datos NoSQL en la Nube".
 
 Aplicación en Python conectada a una base de datos de **grafos** (Neo4j AuraDB, en la nube) que guarda películas, actores, directores, géneros, usuarios y sus calificaciones. Con eso recomienda películas, encuentra películas parecidas, busca el camino más corto entre dos actores y sugiere a quién seguir.
 
@@ -59,46 +59,25 @@ Propiedades, restricciones e índices en [docs/modelo-grafo.md](docs/modelo-graf
 - Vecindad de una persona a 1, 2 o 3 grados de separación.
 - A quién seguir: amigos de mis amigos.
 
-## Plan de trabajo por PRs
-
-Cada PR es una rama desde `main`, chica y revisable, y se mergea antes de empezar la siguiente si depende de ella. Las tareas se marcan aquí cuando el PR se mergea.
-
-| # | Rama | Qué entrega | Criterio de la rúbrica |
-|---|---|---|---|
-| 1 | `docs/planeacion` | Este README, problema, justificación, modelo del grafo, ADRs, plantilla de PR | Justificación (15), Documentación (20) |
-| 2 | `chore/ci` | `pyproject.toml` con Ruff y pytest, `requirements*.txt`, workflow de GitHub Actions con un Neo4j de pruebas y fixtures de pytest | Código (25) |
-| 3 | `feat/conexion-esquema` | `src/conexion.py` (driver único, credenciales del `.env`, lectura/escritura), restricciones e índices, prueba de conexión a AuraDB | Código e integración cloud (25), Diseño (20) |
-| 4 | `feat/seed` | Datos iniciales en `data/` y `seed/seed.py` (con `--reset`, sin duplicar con `MERGE`) | Entregable B (seeding script) |
-| 5 | `feat/crud` | CRUD de películas, usuarios, calificaciones y seguidores + pruebas | CRUD obligatorio |
-| 6 | `feat/consultas` | Recomendación colaborativa, películas parecidas, top por género, camino más corto, vecindad y a quién seguir + pruebas | Consultas del paradigma |
-| 7 | `feat/app-streamlit` | Interfaz con secciones de CRUD, recomendaciones y caminos; muestra el Cypher y el tiempo de respuesta | Demo en vivo (20) |
-| 8 | `docs/reporte` | PDF de diseño y justificación (5 secciones del enunciado) y guion de demo y defensa | Documentación (20), Exposición (20) |
-
-## Entregables del enunciado
-
-- [ ] **A. PDF** con: introducción y dominio, justificación del paradigma, arquitectura (diagrama de bloques), diseño del modelo (diagrama del grafo con etiquetas, propiedades y relaciones con dirección) y catálogo de consultas. Fuente en `docs/reporte/` (PR 8).
-- [ ] **B. Código** en este repo: modular y documentado, README con requisitos, instalación y ejecución, y script de seed (PRs 2 a 7).
-- [ ] **Demo** de 4 minutos conectada a AuraDB y **defensa** de 4 a 6 minutos ([docs/demo-y-defensa.md](docs/demo-y-defensa.md), PR 8).
-
 ## Estructura del repo
 
 ```
 .
-├── app.py                 # interfaz Streamlit de la demo (PR 7)
+├── app.py                 # interfaz Streamlit de la demo
 ├── pyproject.toml         # configuración de Ruff y pytest
 ├── requirements.txt       # dependencias de la app
 ├── requirements-dev.txt   # dependencias de desarrollo (pytest, Ruff)
 ├── src/
-│   ├── conexion.py        # driver, credenciales, leer/escribir, transacciones (PR 3)
-│   ├── peliculas.py       # CRUD de películas (PR 5)
-│   ├── usuarios.py        # CRUD de usuarios y calificaciones (PR 5)
-│   ├── validacion.py      # validaciones compartidas del CRUD (PR 5)
-│   └── consultas.py       # recomendaciones, caminos y vecindad (PR 6)
+│   ├── conexion.py        # driver, credenciales, leer/escribir, transacciones
+│   ├── peliculas.py       # CRUD de películas
+│   ├── usuarios.py        # CRUD de usuarios y calificaciones
+│   ├── validacion.py      # validaciones compartidas del CRUD
+│   └── consultas.py       # recomendaciones, caminos y vecindad
 ├── seed/
-│   ├── esquema.cypher     # restricciones e índices (PR 3)
-│   ├── esquema.py         # aplica el esquema al grafo (PR 3)
-│   └── seed.py            # carga de datos iniciales (PR 4)
-├── data/                  # películas y usuarios en JSON (PR 4)
+│   ├── esquema.cypher     # restricciones e índices
+│   ├── esquema.py         # aplica el esquema al grafo
+│   └── seed.py            # carga de datos iniciales
+├── data/                  # películas y usuarios en JSON
 ├── tests/
 │   ├── conftest.py        # fixtures y guardas para no tocar la base real
 │   ├── test_app.py        # compila app.py y revisa sus secciones
@@ -109,23 +88,11 @@ Cada PR es una rama desde `main`, chica y revisable, y se mergea antes de empeza
 │   ├── modelo-grafo.md
 │   ├── catalogo-consultas.md
 │   ├── demo-y-defensa.md
-│   ├── adr/
-│   └── reporte/           # fuente y PDF final
+│   └── adr/
 └── .github/
     ├── pull_request_template.md
-    └── workflows/ci.yml   # PR 2
+    └── workflows/ci.yml   # CI con Ruff y pytest
 ```
-
-## Cómo trabajamos
-
-- `main` siempre funciona. No se hace push directo: todo entra por PR.
-- Ramas con prefijo por tipo: `docs/`, `chore/`, `feat/`, `fix/`.
-- Commits con [Conventional Commits](https://www.conventionalcommits.org/es/): `feat(consultas): camino más corto entre personas`.
-- Cada PR llena la plantilla, pasa el CI (Ruff y pytest) y se revisa antes del merge.
-- Las decisiones de diseño van en un ADR; un ADR aceptado no se edita, se reemplaza con uno nuevo.
-- Todas las consultas usan parámetros (`$id`), nunca texto pegado en el Cypher.
-- Las credenciales solo viven en `.env`. El repo trae `.env.example` sin valores.
-- **Terminado** = mergeado en `main` y probado contra la instancia de AuraDB.
 
 ## Cómo correrlo
 
