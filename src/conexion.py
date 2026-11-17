@@ -18,12 +18,14 @@ Al terminar el programa se llama a `cerrar_driver()`.
 from __future__ import annotations
 
 import os
+import ssl
 import threading
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from neo4j import Driver, GraphDatabase, RoutingControl
+from neo4j import Driver, GraphDatabase, ManagedTransaction, RoutingControl
 
 RAIZ = Path(__file__).resolve().parents[1]
 ARCHIVO_ENV = RAIZ / ".env"
@@ -56,16 +58,22 @@ def _base_de_datos() -> str | None:
 
 
 def _configurar_certificados() -> None:
-    """Da un trust store al intérprete si no lo trae.
+    """Da un trust store al proceso solo si el intérprete no tiene ninguno.
 
     Los Python que se instalan desde python.org en macOS no incluyen los
     certificados raíz, así que el TLS contra AuraDB falla con
     `SSL: CERTIFICATE_VERIFY_FAILED` o, de forma menos obvia,
     `ServiceUnavailable: Unable to retrieve routing information`. `certifi`
-    trae un bundle actualizado: se apunta `SSL_CERT_FILE` a él solo si el
-    usuario no lo definió, para no pisar una configuración propia.
+    trae un bundle actualizado y se usa como `SSL_CERT_FILE`.
+
+    Se toca el entorno lo mínimo: si el usuario ya definió `SSL_CERT_FILE` o si
+    el contexto TLS por defecto sí trae CAs (una red con proxy que inspecciona
+    TLS y una CA corporativa instalada en el sistema), no se cambia nada; pisar
+    esas CAs rompería conexiones que hoy funcionan.
     """
     if os.getenv("SSL_CERT_FILE"):
+        return
+    if ssl.create_default_context().get_ca_certs():
         return
     try:
         import certifi
@@ -127,6 +135,31 @@ def leer(consulta: str, **parametros: Any) -> list[dict[str, Any]]:
 def escribir(consulta: str, **parametros: Any) -> list[dict[str, Any]]:
     """Ejecuta una consulta de escritura (routing WRITE) y devuelve las filas como dicts."""
     return _ejecutar(consulta, RoutingControl.WRITE, parametros)
+
+
+def en_transaccion[T](funcion: Callable[[ManagedTransaction], T]) -> T:
+    """Corre varias escrituras en una sola transacción y devuelve lo que devuelva `funcion`.
+
+    `funcion` recibe la transacción abierta y hace sus `tx.run(...)` en orden::
+
+        def crear(tx):
+            tx.run("CREATE (p:Pelicula {id: $id})", id="x-2000")
+            tx.run("MERGE (:Genero {nombre: 'Drama'})")
+
+        en_transaccion(crear)
+
+    Si cualquier escritura falla, el commit no ocurre y el grafo queda como
+    estaba: no quedan películas a medias ni relaciones sueltas. `execute_write`
+    reintenta ante errores transitorios (un corte de red contra Aura, por
+    ejemplo), así que las escrituras de `funcion` deben ser idempotentes; con
+    `MERGE` y `CREATE` de nodos que se acaban de insertar, lo son.
+
+    Para una sola sentencia alcanza `escribir()`; esta función es para las
+    operaciones que necesitan varias.
+    """
+    driver = obtener_driver()
+    with driver.session(database=_base_de_datos()) as sesion:
+        return sesion.execute_write(funcion)
 
 
 def verificar_conexion() -> dict[str, Any]:
