@@ -1,0 +1,589 @@
+[
+  {
+    "id": "batman-begins-2005",
+    "titulo": "Batman Begins",
+    "anio": 2005,
+    "duracion": 140,
+    "generos": [
+      "Acción",
+      "Aventura"
+    ],
+    "director": "Christopher Nolan",
+    "actores": [
+      "Christian Bale",
+      "Michael Caine",
+      "Cillian Murphy"
+    ]
+  },
+  {
+    "id": "the-dark-knight-2008",
+    "titulo": "The Dark Knight",
+    "anio": 2008,
+    "duracion": 152,
+    "generos": [
+      "Acción",
+      "Crimen",
+      "Suspenso"
+    ],
+    "director": "Christopher Nolan",
+    "actores": [
+      "Christian Bale",
+      "Michael Caine",
+      "Cillian Murphy",
+      "Morgan Freeman"
+    ]
+  },
+  {
+    "id": "the-dark-knight-rises-2012",
+    "titulo": "The Dark Knight Rises",
+    "anio": 2012,
+    "duracion": 165,
+    "generos": [
+      "Acción",
+      "Suspenso"
+    ],
+    "director": "Christopher Nolan",
+    "actores": [
+      "Christian Bale",
+      "Michael Caine",
+      "Tom Hardy",
+      "Anne Hathaway"
+    ]
+  },
+  {
+    "id": "inception-2010",
+    "titulo": "Inception",
+    "anio": 2010,
+    "duracion": 148,
+    "generos": [
+      "Ciencia ficción",
+      "Acción",
+      "Suspenso"
+    ],
+    "director": "Christopher Nolan",
+    "actores": [
+      "Leonardo DiCaprio",
+      "Tom Hardy",
+      "Michael Caine"
+    ]
+  },
+  {
+    "id": "interstellar-2014",
+    "titulo": "Interstellar",
+    "anio": 2014,
+    "duracion": 169,
+    "generos": [
+      "Ciencia ficción",
+      "Drama",
+      "Aventura"
+    ],
+    "director": "Christopher Nolan",
+    "actores": [
+      "Matthew McConaughey",
+      "Anne Hathaway",
+      "Matt Damon"
+    ]
+  },
+  {
+    "id": "oppenheimer-2023",
+    "titulo": "Oppenheimer",
+    "anio": 2023,
+    "duracion": 180,
+    "generos": [
+      "Drama",
+      "Suspenso"
+    ],
+    "director": "Christopher Nolan",
+    "actores": [
+      "Cillian Murphy",
+      "Emily Blunt",
+      "Robert Downey Jr.",
+      "Matt Damon"
+    ]
+  },
+  {
+    "id": "the-matrix-1999",
+    "titulo": "The Matrix",
+    "anio": 1999,
+    "duracion": 136,
+    "generos": [
+      "Acción",
+      "Ciencia ficción"
+    ],
+    "director": "Lana Wachowski",
+    "actores": [
+      "Keanu Reeves",
+      "Laurence Fishburne",
+      "Carrie-Anne Moss",
+      "Hugo Weaving"
+    ]
+  },
+  {
+    "id": "the-matrix-reloaded-2003",
+    "titulo": "The Matrix Reloaded",
+    "anio": 2003,
+    "duracion": 138,
+    "generos": [
+      "Acción",
+      "Ciencia ficción"
+    ],
+    "director": "Lana Wachowski",
+    "actores": [
+      "Keanu Reeves",
+      "Laurence Fishburne",
+      "Carrie-Anne Moss",
+      "Hugo Weaving"
+    ]
+  },
+  {
+    "id": "the-matrix-revolutions-2003",
+    "titulo": "The Matrix Revolutions",
+    "anio": 2003,
+    "duracion": 129,
+    "generos": [
+      "Acción",
+      "Ciencia ficción"
+    ],
+    "director": "Lana Wachowski",
+    "actores": [
+      "Keanu Reeves",
+      "Laurence Fishburne",
+      "Carrie-Anne Moss",
+      "Hugo Weaving"
+    ]
+  },
+  {
+    "id": "the-lord-of-the-rings-the-fellowship-of-the-ring-2001",
+    "titulo": "The Lord of the Rings: The Fellowship of the Ring",
+    "anio": 2001,
+    "duracion": 178,
+    "generos": [
+      "Aventura",
+      "Drama"
+    ],
+    "director": "Peter Jackson",
+    "actores": [
+      "Elijah Wood",
+      "Ian McKellen",
+      "Viggo Mortensen",
+      "Hugo Weaving"
+    ]
+  },
+  {
+    "id": "the-lord-of-the-rings-the-two-towers-2002",
+    "titulo": "The Lord of the Rings: The Two Towers",
+    "anio": 2002,
+    "duracion": 179,
+    "generos": [
+      "Aventura",
+      "Drama"
+    ],
+    "director": "Peter Jackson",
+    "actores": [
+      "Elijah Wood",
+      "Ian McKellen",
+      "Viggo Mortensen",
+      "Hugo Weaving"
+    ]
+  },
+  {
+    "id": "the-lord-of-the-rings-the-return-of-the-king-2003",
+    "titulo": "The Lord of the Rings: The Return of the King",
+    "anio": 2003,
+    "duracion": 201,
+    "generos": [
+      "Aventura",
+      "Drama"
+    ],
+    "director": "Peter Jackson",
+    "actores": [
+      "Elijah Wood",
+      "Ian McKellen",
+      "Viggo Mortensen",
+      "Hugo Weaving"
+    ]
+  },
+  {
+    "id": "toy-story-1995",
+    "titulo": "Toy Story",
+    "anio": 1995,
+    "duracion": 81,
+    "generos": [
+      "Animación",
+      "Aventura",
+      "Comedia"
+    ],
+    "director": "John Lasseter",
+    "actores": [
+      "Tom Hanks",
+      "Tim Allen",
+      "Don Rickles"
+    ]
+  },
+  {
+    "id": "toy-story-2-1999",
+    "titulo": "Toy Story 2",
+    "anio": 1999,
+    "duracion": 92,
+    "generos": [
+      "Animación",
+      "Aventura",
+      "Comedia"
+    ],
+    "director": "John Lasseter",
+    "actores": [
+      "Tom Hanks",
+      "Tim Allen",
+      "Don Rickles"
+    ]
+  },
+  {
+    "id": "toy-story-3-2010",
+    "titulo": "Toy Story 3",
+    "anio": 2010,
+    "duracion": 103,
+    "generos": [
+      "Animación",
+      "Aventura",
+      "Comedia"
+    ],
+    "director": "Lee Unkrich",
+    "actores": [
+      "Tom Hanks",
+      "Tim Allen",
+      "Don Rickles"
+    ]
+  },
+  {
+    "id": "pulp-fiction-1994",
+    "titulo": "Pulp Fiction",
+    "anio": 1994,
+    "duracion": 154,
+    "generos": [
+      "Crimen",
+      "Drama"
+    ],
+    "director": "Quentin Tarantino",
+    "actores": [
+      "Samuel L. Jackson",
+      "Uma Thurman",
+      "John Travolta",
+      "Bruce Willis"
+    ]
+  },
+  {
+    "id": "kill-bill-vol-1-2003",
+    "titulo": "Kill Bill: Vol. 1",
+    "anio": 2003,
+    "duracion": 111,
+    "generos": [
+      "Acción",
+      "Crimen",
+      "Suspenso"
+    ],
+    "director": "Quentin Tarantino",
+    "actores": [
+      "Uma Thurman",
+      "Lucy Liu",
+      "David Carradine"
+    ]
+  },
+  {
+    "id": "django-unchained-2012",
+    "titulo": "Django Unchained",
+    "anio": 2012,
+    "duracion": 165,
+    "generos": [
+      "Crimen",
+      "Drama"
+    ],
+    "director": "Quentin Tarantino",
+    "actores": [
+      "Leonardo DiCaprio",
+      "Samuel L. Jackson",
+      "Jamie Foxx"
+    ]
+  },
+  {
+    "id": "once-upon-a-time-in-hollywood-2019",
+    "titulo": "Once Upon a Time in Hollywood",
+    "anio": 2019,
+    "duracion": 161,
+    "generos": [
+      "Comedia",
+      "Drama",
+      "Crimen"
+    ],
+    "director": "Quentin Tarantino",
+    "actores": [
+      "Leonardo DiCaprio",
+      "Brad Pitt",
+      "Margot Robbie"
+    ]
+  },
+  {
+    "id": "goodfellas-1990",
+    "titulo": "Goodfellas",
+    "anio": 1990,
+    "duracion": 146,
+    "generos": [
+      "Crimen",
+      "Drama"
+    ],
+    "director": "Martin Scorsese",
+    "actores": [
+      "Robert De Niro",
+      "Joe Pesci",
+      "Ray Liotta"
+    ]
+  },
+  {
+    "id": "the-departed-2006",
+    "titulo": "The Departed",
+    "anio": 2006,
+    "duracion": 151,
+    "generos": [
+      "Crimen",
+      "Suspenso",
+      "Drama"
+    ],
+    "director": "Martin Scorsese",
+    "actores": [
+      "Leonardo DiCaprio",
+      "Matt Damon",
+      "Jack Nicholson"
+    ]
+  },
+  {
+    "id": "se7en-1995",
+    "titulo": "Se7en",
+    "anio": 1995,
+    "duracion": 127,
+    "generos": [
+      "Crimen",
+      "Suspenso",
+      "Terror"
+    ],
+    "director": "David Fincher",
+    "actores": [
+      "Brad Pitt",
+      "Morgan Freeman",
+      "Gwyneth Paltrow"
+    ]
+  },
+  {
+    "id": "fight-club-1999",
+    "titulo": "Fight Club",
+    "anio": 1999,
+    "duracion": 139,
+    "generos": [
+      "Drama",
+      "Suspenso"
+    ],
+    "director": "David Fincher",
+    "actores": [
+      "Brad Pitt",
+      "Edward Norton",
+      "Helena Bonham Carter"
+    ]
+  },
+  {
+    "id": "iron-man-2008",
+    "titulo": "Iron Man",
+    "anio": 2008,
+    "duracion": 126,
+    "generos": [
+      "Acción",
+      "Ciencia ficción"
+    ],
+    "director": "Jon Favreau",
+    "actores": [
+      "Robert Downey Jr.",
+      "Gwyneth Paltrow",
+      "Jeff Bridges"
+    ]
+  },
+  {
+    "id": "iron-man-2-2010",
+    "titulo": "Iron Man 2",
+    "anio": 2010,
+    "duracion": 124,
+    "generos": [
+      "Acción",
+      "Ciencia ficción"
+    ],
+    "director": "Jon Favreau",
+    "actores": [
+      "Robert Downey Jr.",
+      "Gwyneth Paltrow",
+      "Scarlett Johansson"
+    ]
+  },
+  {
+    "id": "the-avengers-2012",
+    "titulo": "The Avengers",
+    "anio": 2012,
+    "duracion": 143,
+    "generos": [
+      "Acción",
+      "Ciencia ficción",
+      "Aventura"
+    ],
+    "director": "Joss Whedon",
+    "actores": [
+      "Robert Downey Jr.",
+      "Chris Evans",
+      "Scarlett Johansson",
+      "Mark Ruffalo"
+    ]
+  },
+  {
+    "id": "captain-america-the-winter-soldier-2014",
+    "titulo": "Captain America: The Winter Soldier",
+    "anio": 2014,
+    "duracion": 136,
+    "generos": [
+      "Acción",
+      "Ciencia ficción",
+      "Suspenso"
+    ],
+    "director": "Anthony Russo",
+    "actores": [
+      "Chris Evans",
+      "Scarlett Johansson",
+      "Anthony Mackie"
+    ]
+  },
+  {
+    "id": "titanic-1997",
+    "titulo": "Titanic",
+    "anio": 1997,
+    "duracion": 194,
+    "generos": [
+      "Drama",
+      "Romance"
+    ],
+    "director": "James Cameron",
+    "actores": [
+      "Leonardo DiCaprio",
+      "Kate Winslet",
+      "Billy Zane"
+    ]
+  },
+  {
+    "id": "eternal-sunshine-of-the-spotless-mind-2004",
+    "titulo": "Eternal Sunshine of the Spotless Mind",
+    "anio": 2004,
+    "duracion": 108,
+    "generos": [
+      "Romance",
+      "Ciencia ficción",
+      "Drama"
+    ],
+    "director": "Michel Gondry",
+    "actores": [
+      "Jim Carrey",
+      "Kate Winslet",
+      "Mark Ruffalo"
+    ]
+  },
+  {
+    "id": "la-la-land-2016",
+    "titulo": "La La Land",
+    "anio": 2016,
+    "duracion": 128,
+    "generos": [
+      "Romance",
+      "Drama",
+      "Comedia"
+    ],
+    "director": "Damien Chazelle",
+    "actores": [
+      "Ryan Gosling",
+      "Emma Stone",
+      "John Legend"
+    ]
+  },
+  {
+    "id": "the-sixth-sense-1999",
+    "titulo": "The Sixth Sense",
+    "anio": 1999,
+    "duracion": 107,
+    "generos": [
+      "Terror",
+      "Suspenso",
+      "Drama"
+    ],
+    "director": "M. Night Shyamalan",
+    "actores": [
+      "Bruce Willis",
+      "Haley Joel Osment",
+      "Toni Collette"
+    ]
+  },
+  {
+    "id": "a-quiet-place-2018",
+    "titulo": "A Quiet Place",
+    "anio": 2018,
+    "duracion": 90,
+    "generos": [
+      "Terror",
+      "Ciencia ficción"
+    ],
+    "director": "John Krasinski",
+    "actores": [
+      "Emily Blunt",
+      "John Krasinski",
+      "Millicent Simmonds"
+    ]
+  },
+  {
+    "id": "28-days-later-2002",
+    "titulo": "28 Days Later",
+    "anio": 2002,
+    "duracion": 113,
+    "generos": [
+      "Terror",
+      "Ciencia ficción",
+      "Suspenso"
+    ],
+    "director": "Danny Boyle",
+    "actores": [
+      "Cillian Murphy",
+      "Naomie Harris",
+      "Brendan Gleeson"
+    ]
+  },
+  {
+    "id": "the-green-mile-1999",
+    "titulo": "The Green Mile",
+    "anio": 1999,
+    "duracion": 189,
+    "generos": [
+      "Drama",
+      "Crimen"
+    ],
+    "director": "Frank Darabont",
+    "actores": [
+      "Tom Hanks",
+      "Michael Clarke Duncan",
+      "Sam Rockwell"
+    ]
+  },
+  {
+    "id": "jojo-rabbit-2019",
+    "titulo": "Jojo Rabbit",
+    "anio": 2019,
+    "duracion": 108,
+    "generos": [
+      "Comedia",
+      "Drama"
+    ],
+    "director": "Taika Waititi",
+    "actores": [
+      "Scarlett Johansson",
+      "Sam Rockwell",
+      "Taika Waititi"
+    ]
+  }
+]

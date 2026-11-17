@@ -1,0 +1,609 @@
+[
+  {
+    "id": "u01",
+    "nombre": "Ana",
+    "sigue": [
+      "u02",
+      "u03",
+      "u04",
+      "u07"
+    ],
+    "calificaciones": [
+      {
+        "pelicula_id": "inception-2010",
+        "estrellas": 5,
+        "fecha": "2025-02-11"
+      },
+      {
+        "pelicula_id": "interstellar-2014",
+        "estrellas": 5,
+        "fecha": "2025-03-02"
+      },
+      {
+        "pelicula_id": "the-matrix-1999",
+        "estrellas": 4,
+        "fecha": "2025-04-19"
+      },
+      {
+        "pelicula_id": "the-dark-knight-2008",
+        "estrellas": 5,
+        "fecha": "2025-06-08"
+      },
+      {
+        "pelicula_id": "the-avengers-2012",
+        "estrellas": 4,
+        "fecha": "2025-08-21"
+      },
+      {
+        "pelicula_id": "batman-begins-2005",
+        "estrellas": 4,
+        "fecha": "2025-11-03"
+      },
+      {
+        "pelicula_id": "the-matrix-reloaded-2003",
+        "estrellas": 3,
+        "fecha": "2026-01-17"
+      },
+      {
+        "pelicula_id": "iron-man-2-2010",
+        "estrellas": 3,
+        "fecha": "2026-04-05"
+      }
+    ]
+  },
+  {
+    "id": "u02",
+    "nombre": "Bruno",
+    "sigue": [
+      "u01",
+      "u05",
+      "u08"
+    ],
+    "calificaciones": [
+      {
+        "pelicula_id": "inception-2010",
+        "estrellas": 4,
+        "fecha": "2025-01-25"
+      },
+      {
+        "pelicula_id": "interstellar-2014",
+        "estrellas": 5,
+        "fecha": "2025-02-16"
+      },
+      {
+        "pelicula_id": "the-matrix-1999",
+        "estrellas": 5,
+        "fecha": "2025-05-04"
+      },
+      {
+        "pelicula_id": "oppenheimer-2023",
+        "estrellas": 4,
+        "fecha": "2025-07-12"
+      },
+      {
+        "pelicula_id": "iron-man-2008",
+        "estrellas": 4,
+        "fecha": "2025-09-30"
+      },
+      {
+        "pelicula_id": "the-dark-knight-rises-2012",
+        "estrellas": 4,
+        "fecha": "2026-02-08"
+      },
+      {
+        "pelicula_id": "the-matrix-revolutions-2003",
+        "estrellas": 3,
+        "fecha": "2026-03-22"
+      },
+      {
+        "pelicula_id": "iron-man-2-2010",
+        "estrellas": 4,
+        "fecha": "2026-05-14"
+      },
+      {
+        "pelicula_id": "toy-story-2-1999",
+        "estrellas": 4,
+        "fecha": "2026-07-01"
+      }
+    ]
+  },
+  {
+    "id": "u03",
+    "nombre": "Carla",
+    "sigue": [
+      "u01",
+      "u06",
+      "u09"
+    ],
+    "calificaciones": [
+      {
+        "pelicula_id": "inception-2010",
+        "estrellas": 5,
+        "fecha": "2025-01-09"
+      },
+      {
+        "pelicula_id": "the-dark-knight-2008",
+        "estrellas": 4,
+        "fecha": "2025-03-18"
+      },
+      {
+        "pelicula_id": "the-avengers-2012",
+        "estrellas": 5,
+        "fecha": "2025-05-27"
+      },
+      {
+        "pelicula_id": "oppenheimer-2023",
+        "estrellas": 4,
+        "fecha": "2025-08-09"
+      },
+      {
+        "pelicula_id": "iron-man-2008",
+        "estrellas": 5,
+        "fecha": "2025-10-22"
+      },
+      {
+        "pelicula_id": "the-matrix-reloaded-2003",
+        "estrellas": 4,
+        "fecha": "2026-02-27"
+      },
+      {
+        "pelicula_id": "the-matrix-revolutions-2003",
+        "estrellas": 3,
+        "fecha": "2026-06-11"
+      },
+      {
+        "pelicula_id": "captain-america-the-winter-soldier-2014",
+        "estrellas": 4,
+        "fecha": "2026-09-05"
+      }
+    ]
+  },
+  {
+    "id": "u04",
+    "nombre": "Diego",
+    "sigue": [
+      "u02",
+      "u05",
+      "u06",
+      "u10"
+    ],
+    "calificaciones": [
+      {
+        "pelicula_id": "interstellar-2014",
+        "estrellas": 4,
+        "fecha": "2025-02-03"
+      },
+      {
+        "pelicula_id": "the-matrix-1999",
+        "estrellas": 4,
+        "fecha": "2025-04-14"
+      },
+      {
+        "pelicula_id": "the-dark-knight-2008",
+        "estrellas": 5,
+        "fecha": "2025-07-07"
+      },
+      {
+        "pelicula_id": "the-avengers-2012",
+        "estrellas": 4,
+        "fecha": "2025-09-19"
+      },
+      {
+        "pelicula_id": "oppenheimer-2023",
+        "estrellas": 5,
+        "fecha": "2025-12-01"
+      },
+      {
+        "pelicula_id": "batman-begins-2005",
+        "estrellas": 4,
+        "fecha": "2026-03-10"
+      },
+      {
+        "pelicula_id": "the-dark-knight-rises-2012",
+        "estrellas": 3,
+        "fecha": "2026-06-23"
+      },
+      {
+        "pelicula_id": "captain-america-the-winter-soldier-2014",
+        "estrellas": 3,
+        "fecha": "2026-10-08"
+      }
+    ]
+  },
+  {
+    "id": "u05",
+    "nombre": "Elena",
+    "sigue": [
+      "u01",
+      "u06"
+    ],
+    "calificaciones": [
+      {
+        "pelicula_id": "pulp-fiction-1994",
+        "estrellas": 5,
+        "fecha": "2025-01-16"
+      },
+      {
+        "pelicula_id": "goodfellas-1990",
+        "estrellas": 4,
+        "fecha": "2025-03-25"
+      },
+      {
+        "pelicula_id": "the-departed-2006",
+        "estrellas": 5,
+        "fecha": "2025-05-11"
+      },
+      {
+        "pelicula_id": "se7en-1995",
+        "estrellas": 5,
+        "fecha": "2025-07-29"
+      },
+      {
+        "pelicula_id": "fight-club-1999",
+        "estrellas": 4,
+        "fecha": "2025-10-06"
+      },
+      {
+        "pelicula_id": "the-lord-of-the-rings-the-fellowship-of-the-ring-2001",
+        "estrellas": 4,
+        "fecha": "2026-01-04"
+      },
+      {
+        "pelicula_id": "the-lord-of-the-rings-the-two-towers-2002",
+        "estrellas": 4,
+        "fecha": "2026-04-18"
+      },
+      {
+        "pelicula_id": "once-upon-a-time-in-hollywood-2019",
+        "estrellas": 3,
+        "fecha": "2026-07-26"
+      },
+      {
+        "pelicula_id": "the-matrix-revolutions-2003",
+        "estrellas": 2,
+        "fecha": "2026-10-30"
+      }
+    ]
+  },
+  {
+    "id": "u06",
+    "nombre": "Fabián",
+    "sigue": [
+      "u02",
+      "u04"
+    ],
+    "calificaciones": [
+      {
+        "pelicula_id": "pulp-fiction-1994",
+        "estrellas": 4,
+        "fecha": "2025-02-20"
+      },
+      {
+        "pelicula_id": "goodfellas-1990",
+        "estrellas": 5,
+        "fecha": "2025-04-30"
+      },
+      {
+        "pelicula_id": "the-departed-2006",
+        "estrellas": 4,
+        "fecha": "2025-06-15"
+      },
+      {
+        "pelicula_id": "the-green-mile-1999",
+        "estrellas": 5,
+        "fecha": "2025-09-08"
+      },
+      {
+        "pelicula_id": "django-unchained-2012",
+        "estrellas": 4,
+        "fecha": "2025-11-21"
+      },
+      {
+        "pelicula_id": "batman-begins-2005",
+        "estrellas": 3,
+        "fecha": "2026-02-14"
+      },
+      {
+        "pelicula_id": "kill-bill-vol-1-2003",
+        "estrellas": 4,
+        "fecha": "2026-05-06"
+      },
+      {
+        "pelicula_id": "once-upon-a-time-in-hollywood-2019",
+        "estrellas": 5,
+        "fecha": "2026-08-30"
+      }
+    ]
+  },
+  {
+    "id": "u07",
+    "nombre": "Gabriela",
+    "sigue": [
+      "u01",
+      "u08",
+      "u09",
+      "u10"
+    ],
+    "calificaciones": [
+      {
+        "pelicula_id": "pulp-fiction-1994",
+        "estrellas": 5,
+        "fecha": "2025-01-30"
+      },
+      {
+        "pelicula_id": "se7en-1995",
+        "estrellas": 4,
+        "fecha": "2025-03-09"
+      },
+      {
+        "pelicula_id": "fight-club-1999",
+        "estrellas": 5,
+        "fecha": "2025-05-18"
+      },
+      {
+        "pelicula_id": "the-green-mile-1999",
+        "estrellas": 4,
+        "fecha": "2025-08-02"
+      },
+      {
+        "pelicula_id": "django-unchained-2012",
+        "estrellas": 5,
+        "fecha": "2025-10-15"
+      },
+      {
+        "pelicula_id": "the-lord-of-the-rings-the-fellowship-of-the-ring-2001",
+        "estrellas": 5,
+        "fecha": "2026-01-27"
+      },
+      {
+        "pelicula_id": "the-lord-of-the-rings-the-return-of-the-king-2003",
+        "estrellas": 5,
+        "fecha": "2026-04-09"
+      },
+      {
+        "pelicula_id": "interstellar-2014",
+        "estrellas": 4,
+        "fecha": "2026-09-15"
+      }
+    ]
+  },
+  {
+    "id": "u08",
+    "nombre": "Hugo",
+    "sigue": [
+      "u02",
+      "u07",
+      "u11"
+    ],
+    "calificaciones": [
+      {
+        "pelicula_id": "goodfellas-1990",
+        "estrellas": 4,
+        "fecha": "2025-02-07"
+      },
+      {
+        "pelicula_id": "the-departed-2006",
+        "estrellas": 4,
+        "fecha": "2025-04-21"
+      },
+      {
+        "pelicula_id": "se7en-1995",
+        "estrellas": 5,
+        "fecha": "2025-06-30"
+      },
+      {
+        "pelicula_id": "fight-club-1999",
+        "estrellas": 4,
+        "fecha": "2025-09-12"
+      },
+      {
+        "pelicula_id": "the-green-mile-1999",
+        "estrellas": 5,
+        "fecha": "2025-11-25"
+      },
+      {
+        "pelicula_id": "the-lord-of-the-rings-the-two-towers-2002",
+        "estrellas": 4,
+        "fecha": "2026-03-03"
+      },
+      {
+        "pelicula_id": "the-lord-of-the-rings-the-return-of-the-king-2003",
+        "estrellas": 4,
+        "fecha": "2026-06-17"
+      },
+      {
+        "pelicula_id": "kill-bill-vol-1-2003",
+        "estrellas": 3,
+        "fecha": "2026-09-28"
+      }
+    ]
+  },
+  {
+    "id": "u09",
+    "nombre": "Irene",
+    "sigue": [
+      "u03",
+      "u07",
+      "u12"
+    ],
+    "calificaciones": [
+      {
+        "pelicula_id": "titanic-1997",
+        "estrellas": 5,
+        "fecha": "2025-01-12"
+      },
+      {
+        "pelicula_id": "eternal-sunshine-of-the-spotless-mind-2004",
+        "estrellas": 5,
+        "fecha": "2025-03-06"
+      },
+      {
+        "pelicula_id": "la-la-land-2016",
+        "estrellas": 4,
+        "fecha": "2025-05-23"
+      },
+      {
+        "pelicula_id": "toy-story-1995",
+        "estrellas": 5,
+        "fecha": "2025-08-14"
+      },
+      {
+        "pelicula_id": "the-sixth-sense-1999",
+        "estrellas": 4,
+        "fecha": "2025-10-28"
+      },
+      {
+        "pelicula_id": "toy-story-2-1999",
+        "estrellas": 4,
+        "fecha": "2026-02-19"
+      },
+      {
+        "pelicula_id": "28-days-later-2002",
+        "estrellas": 3,
+        "fecha": "2026-05-30"
+      },
+      {
+        "pelicula_id": "the-dark-knight-2008",
+        "estrellas": 4,
+        "fecha": "2026-08-12"
+      }
+    ]
+  },
+  {
+    "id": "u10",
+    "nombre": "Javier",
+    "sigue": [
+      "u04",
+      "u08",
+      "u11",
+      "u12"
+    ],
+    "calificaciones": [
+      {
+        "pelicula_id": "titanic-1997",
+        "estrellas": 4,
+        "fecha": "2025-02-25"
+      },
+      {
+        "pelicula_id": "eternal-sunshine-of-the-spotless-mind-2004",
+        "estrellas": 4,
+        "fecha": "2025-06-04"
+      },
+      {
+        "pelicula_id": "la-la-land-2016",
+        "estrellas": 5,
+        "fecha": "2025-09-17"
+      },
+      {
+        "pelicula_id": "a-quiet-place-2018",
+        "estrellas": 4,
+        "fecha": "2025-12-09"
+      },
+      {
+        "pelicula_id": "jojo-rabbit-2019",
+        "estrellas": 5,
+        "fecha": "2026-03-15"
+      },
+      {
+        "pelicula_id": "toy-story-3-2010",
+        "estrellas": 5,
+        "fecha": "2026-07-08"
+      }
+    ]
+  },
+  {
+    "id": "u11",
+    "nombre": "Karen",
+    "sigue": [
+      "u07",
+      "u09"
+    ],
+    "calificaciones": [
+      {
+        "pelicula_id": "titanic-1997",
+        "estrellas": 5,
+        "fecha": "2025-01-21"
+      },
+      {
+        "pelicula_id": "toy-story-1995",
+        "estrellas": 4,
+        "fecha": "2025-04-07"
+      },
+      {
+        "pelicula_id": "the-sixth-sense-1999",
+        "estrellas": 5,
+        "fecha": "2025-07-19"
+      },
+      {
+        "pelicula_id": "a-quiet-place-2018",
+        "estrellas": 4,
+        "fecha": "2025-10-11"
+      },
+      {
+        "pelicula_id": "jojo-rabbit-2019",
+        "estrellas": 4,
+        "fecha": "2026-01-31"
+      },
+      {
+        "pelicula_id": "toy-story-2-1999",
+        "estrellas": 4,
+        "fecha": "2026-05-24"
+      },
+      {
+        "pelicula_id": "28-days-later-2002",
+        "estrellas": 3,
+        "fecha": "2026-09-19"
+      }
+    ]
+  },
+  {
+    "id": "u12",
+    "nombre": "Luis",
+    "sigue": [
+      "u08",
+      "u10"
+    ],
+    "calificaciones": [
+      {
+        "pelicula_id": "eternal-sunshine-of-the-spotless-mind-2004",
+        "estrellas": 4,
+        "fecha": "2025-02-12"
+      },
+      {
+        "pelicula_id": "la-la-land-2016",
+        "estrellas": 4,
+        "fecha": "2025-05-01"
+      },
+      {
+        "pelicula_id": "toy-story-1995",
+        "estrellas": 5,
+        "fecha": "2025-07-23"
+      },
+      {
+        "pelicula_id": "the-sixth-sense-1999",
+        "estrellas": 4,
+        "fecha": "2025-11-06"
+      },
+      {
+        "pelicula_id": "a-quiet-place-2018",
+        "estrellas": 5,
+        "fecha": "2026-02-22"
+      },
+      {
+        "pelicula_id": "toy-story-3-2010",
+        "estrellas": 4,
+        "fecha": "2026-06-06"
+      },
+      {
+        "pelicula_id": "the-matrix-1999",
+        "estrellas": 4,
+        "fecha": "2026-09-11"
+      },
+      {
+        "pelicula_id": "goodfellas-1990",
+        "estrellas": 1,
+        "fecha": "2026-11-02"
+      }
+    ]
+  }
+]

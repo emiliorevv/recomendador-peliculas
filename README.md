@@ -126,7 +126,7 @@ Cada PR es una rama desde `main`, chica y revisable, y se mergea antes de empeza
 
 ## Cómo correrlo
 
-> La carga de datos y el arranque de la app se completan en los PRs 4 y 7.
+> La interfaz de la app se completa en el PR 7.
 
 ### Requisitos
 
@@ -149,6 +149,28 @@ cp .env.example .env      # y llena las credenciales que te dio Aura
 ```bash
 python seed/esquema.py    # restricciones e índices; se puede correr varias veces
 ```
+
+### Datos iniciales
+
+```bash
+python seed/seed.py            # carga los datos de data/ sin borrar (idempotente)
+python seed/seed.py --reset    # primero borra el grafo y después carga desde cero
+```
+
+Lee `data/peliculas.json` y `data/usuarios.json` y crea los nodos y relaciones con `MERGE`
+(35 películas, 74 personas, 10 géneros, 12 usuarios, 95 calificaciones y 36 relaciones `SIGUE`),
+así que correrlo dos veces no duplica nada. Aplica el esquema al empezar (es idempotente), así que
+una instancia nueva queda lista con una sola corrida.
+
+Al final imprime los conteos del grafo y valida según el modo:
+
+- con `--reset` exige que los conteos coincidan **exactamente** con los JSON, porque se acaba de
+  borrar todo;
+- sin `--reset` solo exige que **todo lo del seed siga presente**, porque el CRUD puede haber
+  agregado usuarios, calificaciones o seguidores. Sale con 0 si el seed está aplicado.
+
+> Con `--reset` el borrado va antes del esquema: así las restricciones se crean aunque el grafo
+> anterior tuviera datos que las violaran.
 
 > Si al conectar aparece `SSL: CERTIFICATE_VERIFY_FAILED` o `Unable to retrieve routing information`
 > en macOS, al intérprete le faltan los certificados raíz: corre `Install Certificates.command` del
