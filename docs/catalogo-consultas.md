@@ -271,7 +271,7 @@ Resultado contra AuraDB, con `u13` y `inception-2010`: `calificar("u13", "incept
 
 `recomendar(usuario_id, limite=10)` en `src/consultas.py` recorre usuario → película → usuario. Gustos parecidos son los usuarios que calificaron con 4 o 5 estrellas **una película que al usuario también le gustó** (4 o 5). Después se recomienda lo que esos usuarios calificaron bien y el usuario no ha visto.
 
-Dos detalles hacen que el resultado sea el correcto: `WITH DISTINCT yo, otro` deja un solo registro por usuario parecido, así `count(otro)` no se pondera por las películas que comparten; y el `NOT (yo)-[:CALIFICO]->(recomendada)` excluye **todo** lo que el usuario ya calificó, tenga las estrellas que tenga. Un usuario inexistente lanza `ValueError`; un usuario válido sin coincidencias devuelve `[]`.
+Dos detalles hacen que el resultado sea el correcto: `WITH DISTINCT yo, otro` deja un solo registro por usuario parecido, así `count(otro)` no se pondera por las películas que comparten; y el `NOT (yo)-[:CALIFICO]->(recomendada)` excluye **todo** lo que el usuario ya calificó, tenga las estrellas que tenga. Se agrupa por el nodo y no por el título, así dos películas homónimas (Dune 1984 y Dune 2021) quedan en filas separadas; por eso el resultado incluye `pelicula_id`. Un usuario inexistente lanza `ValueError`; un usuario válido sin coincidencias devuelve `[]`.
 
 ```cypher
 MATCH (yo:Usuario {id: $id})-[mia:CALIFICO]->(:Pelicula)<-[suya:CALIFICO]-(otro:Usuario)
@@ -279,27 +279,28 @@ WHERE otro <> yo AND mia.estrellas >= 4 AND suya.estrellas >= 4
 WITH DISTINCT yo, otro
 MATCH (otro)-[otra:CALIFICO]->(recomendada:Pelicula)
 WHERE otra.estrellas >= 4 AND NOT (yo)-[:CALIFICO]->(recomendada)
-RETURN recomendada.titulo AS pelicula,
+RETURN recomendada.id AS pelicula_id,
+       recomendada.titulo AS pelicula,
        count(otro) AS usuarios_parecidos,
        round(avg(otra.estrellas), 2) AS promedio
-ORDER BY usuarios_parecidos DESC, promedio DESC, pelicula
+ORDER BY usuarios_parecidos DESC, promedio DESC, pelicula, pelicula_id
 LIMIT $limite
 ```
 
 Resultado contra AuraDB para `recomendar("u01")`:
 
-| Película | Usuarios parecidos | Promedio |
-|---|---|---|
-| Oppenheimer | 3 | 4.33 |
-| Toy Story | 2 | 5.0 |
-| Eternal Sunshine of the Spotless Mind | 2 | 4.5 |
-| Iron Man | 2 | 4.5 |
-| La La Land | 2 | 4.0 |
-| The Sixth Sense | 2 | 4.0 |
-| Toy Story 2 | 2 | 4.0 |
-| A Quiet Place | 1 | 5.0 |
-| Django Unchained | 1 | 5.0 |
-| Fight Club | 1 | 5.0 |
+| pelicula_id | Película | Usuarios parecidos | Promedio |
+|---|---|---|---|
+| `oppenheimer-2023` | Oppenheimer | 3 | 4.33 |
+| `toy-story-1995` | Toy Story | 2 | 5.0 |
+| `eternal-sunshine-of-the-spotless-mind-2004` | Eternal Sunshine of the Spotless Mind | 2 | 4.5 |
+| `iron-man-2008` | Iron Man | 2 | 4.5 |
+| `la-la-land-2016` | La La Land | 2 | 4.0 |
+| `the-sixth-sense-1999` | The Sixth Sense | 2 | 4.0 |
+| `toy-story-2-1999` | Toy Story 2 | 2 | 4.0 |
+| `a-quiet-place-2018` | A Quiet Place | 1 | 5.0 |
+| `django-unchained-2012` | Django Unchained | 1 | 5.0 |
+| `fight-club-1999` | Fight Club | 1 | 5.0 |
 
 ## 9. Películas parecidas
 
@@ -344,29 +345,30 @@ Resultado contra AuraDB para `peliculas_parecidas("inception-2010")`, primeras c
 
 ## 10. Top por género
 
-`top_por_genero(genero, limite=10)` ordena por promedio descendente y desempata por cantidad de votos y después por título, para que dos corridas den lo mismo. Solo entran películas con al menos una calificación: sin votos no hay promedio que ordenar. El promedio va redondeado a dos decimales y se devuelve el conteo de votos para que la app muestre "4.67 (3 votos)". Un género sin películas calificadas devuelve `[]`, no un error.
+`top_por_genero(genero, limite=10)` ordena por promedio descendente y desempata por cantidad de votos y después por título, para que dos corridas den lo mismo. Agrupa por el nodo y no por el título, así que dos películas homónimas (Dune 1984 y Dune 2021) conservan cada una su promedio y sus votos; por eso el resultado incluye `pelicula_id`. Solo entran películas con al menos una calificación: sin votos no hay promedio que ordenar. El promedio va redondeado a dos decimales y se devuelve el conteo de votos para que la app muestre "4.67 (3 votos)". Un género sin películas calificadas devuelve `[]`, no un error.
 
 ```cypher
 MATCH (p:Pelicula)-[:DE_GENERO]->(:Genero {nombre: $genero})
 MATCH (p)<-[c:CALIFICO]-(:Usuario)
-RETURN p.titulo AS titulo,
+RETURN p.id AS pelicula_id,
+       p.titulo AS titulo,
        round(avg(c.estrellas), 2) AS promedio,
        count(c) AS votos
-ORDER BY promedio DESC, votos DESC, titulo
+ORDER BY promedio DESC, votos DESC, titulo, pelicula_id
 LIMIT $limite
 ```
 
 Resultado contra AuraDB para `top_por_genero("Drama", limite=3)`:
 
-| Película | Promedio | Votos |
-|---|---|---|
-| Pulp Fiction | 4.67 | 3 |
-| The Green Mile | 4.67 | 3 |
-| Titanic | 4.67 | 3 |
+| pelicula_id | Película | Promedio | Votos |
+|---|---|---|---|
+| `pulp-fiction-1994` | Pulp Fiction | 4.67 | 3 |
+| `the-green-mile-1999` | The Green Mile | 4.67 | 3 |
+| `titanic-1997` | Titanic | 4.67 | 3 |
 
 ## 11. Camino más corto entre personas
 
-`camino_entre_personas(origen, destino)` usa `shortestPath` sobre `ACTUO_EN` y `DIRIGIO` recorridas en los dos sentidos. El patrón va de persona a persona alternando películas, así que el tope `*..12` mantiene la idea de "seis grados" (12 saltos = 6 personas intermedias) y evita que el recorrido variable se expanda sin límite. Si alguna de las dos personas no existe, `ValueError`; si existe pero no hay camino, `{"encontrado": False, "saltos": 0, "camino": []}`.
+`camino_entre_personas(origen, destino)` usa `shortestPath` sobre `ACTUO_EN` y `DIRIGIO` recorridas en los dos sentidos. El patrón ya está restringido a esas dos relaciones, así que no puede escaparse por los géneros; el tope `*..12` solo acota la búsqueda y mantiene la idea de "seis grados": 12 saltos entre dos personas son 6 películas y **5 personas intermedias** (los dos extremos no cuentan). Si origen y destino son la misma persona, se devuelve `{"encontrado": True, "saltos": 0, "camino": [origen]}` sin consultar el camino, porque `shortestPath` no admite extremos iguales. Si alguna de las dos personas no existe, `ValueError`; si existe pero no hay camino, `{"encontrado": False, "saltos": 0, "camino": []}`.
 
 ```cypher
 MATCH (a:Persona {nombre: $origen}), (b:Persona {nombre: $destino})
@@ -385,17 +387,19 @@ Tom Hanks → The Green Mile → Sam Rockwell → Jojo Rabbit → Scarlett Johan
 
 ## 12. Vecindad de una persona a N grados
 
-`vecindad(nombre, grados=2, limite=25)` devuelve las personas alrededor de una persona con su distancia. En este grafo las personas solo se tocan a través de una película, así que **un grado de separación son dos saltos**: compartir película. El patrón va de persona en persona (`*2..6`, longitudes pares) y el `WHERE` corta en `$grados * 2`; `grados` se valida como entero de 1 a 3. Una persona inexistente lanza `ValueError`.
+`vecindad(nombre, grados=2, limite=25)` devuelve las personas alrededor de una persona con su distancia. En este grafo las personas solo se tocan a través de una película, así que **un grado de separación son dos saltos**: compartir película. El patrón va de persona en persona en longitudes pares y hay una variante por grado (`*2..2`, `*2..4` y `*2..6`), así el recorrido no enumera caminos más largos de lo pedido. `grados` se valida como entero de 1 a 3. Una persona inexistente lanza `ValueError`.
 
 ```cypher
 MATCH (a:Persona {nombre: $nombre})
-MATCH ruta = (a)-[:ACTUO_EN|DIRIGIO*2..6]-(otra:Persona)
-WHERE otra <> a AND length(ruta) <= $grados * 2
+MATCH ruta = (a)-[:ACTUO_EN|DIRIGIO*2..4]-(otra:Persona)
+WHERE otra <> a
 WITH otra, min(length(ruta)) AS saltos
 RETURN otra.nombre AS persona, saltos / 2 AS distancia
 ORDER BY distancia, persona
 LIMIT $limite
 ```
+
+Es el Cypher de `grados=2`; para 1 grado el tope es `*2..2` y para 3, `*2..6`. `min(length(ruta))` se queda con la distancia más corta cuando una persona se alcanza por varios caminos.
 
 Resultado contra AuraDB para `vecindad("Tom Hanks", grados=2)`:
 

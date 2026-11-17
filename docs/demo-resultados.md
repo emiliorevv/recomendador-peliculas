@@ -39,25 +39,26 @@ WHERE otro <> yo AND mia.estrellas >= 4 AND suya.estrellas >= 4
 WITH DISTINCT yo, otro
 MATCH (otro)-[otra:CALIFICO]->(recomendada:Pelicula)
 WHERE otra.estrellas >= 4 AND NOT (yo)-[:CALIFICO]->(recomendada)
-RETURN recomendada.titulo AS pelicula,
+RETURN recomendada.id AS pelicula_id,
+       recomendada.titulo AS pelicula,
        count(otro) AS usuarios_parecidos,
        round(avg(otra.estrellas), 2) AS promedio
-ORDER BY usuarios_parecidos DESC, promedio DESC, pelicula
+ORDER BY usuarios_parecidos DESC, promedio DESC, pelicula, pelicula_id
 LIMIT $limite
 ```
 
-| Película | Usuarios parecidos | Promedio |
-|---|---|---|
-| Oppenheimer | 3 | 4.33 |
-| Toy Story | 2 | 5.0 |
-| Eternal Sunshine of the Spotless Mind | 2 | 4.5 |
-| Iron Man | 2 | 4.5 |
-| La La Land | 2 | 4.0 |
-| The Sixth Sense | 2 | 4.0 |
-| Toy Story 2 | 2 | 4.0 |
-| A Quiet Place | 1 | 5.0 |
-| Django Unchained | 1 | 5.0 |
-| Fight Club | 1 | 5.0 |
+| pelicula_id | Película | Usuarios parecidos | Promedio |
+|---|---|---|---|
+| `oppenheimer-2023` | Oppenheimer | 3 | 4.33 |
+| `toy-story-1995` | Toy Story | 2 | 5.0 |
+| `eternal-sunshine-of-the-spotless-mind-2004` | Eternal Sunshine of the Spotless Mind | 2 | 4.5 |
+| `iron-man-2008` | Iron Man | 2 | 4.5 |
+| `la-la-land-2016` | La La Land | 2 | 4.0 |
+| `the-sixth-sense-1999` | The Sixth Sense | 2 | 4.0 |
+| `toy-story-2-1999` | Toy Story 2 | 2 | 4.0 |
+| `a-quiet-place-2018` | A Quiet Place | 1 | 5.0 |
+| `django-unchained-2012` | Django Unchained | 1 | 5.0 |
+| `fight-club-1999` | Fight Club | 1 | 5.0 |
 
 ## 11. Camino más corto entre personas
 
@@ -110,26 +111,28 @@ LIMIT $limite
 ```cypher
 MATCH (p:Pelicula)-[:DE_GENERO]->(:Genero {nombre: $genero})
 MATCH (p)<-[c:CALIFICO]-(:Usuario)
-RETURN p.titulo AS titulo, round(avg(c.estrellas), 2) AS promedio, count(c) AS votos
-ORDER BY promedio DESC, votos DESC, titulo
+RETURN p.id AS pelicula_id, p.titulo AS titulo,
+       round(avg(c.estrellas), 2) AS promedio, count(c) AS votos
+ORDER BY promedio DESC, votos DESC, titulo, pelicula_id
 LIMIT $limite
 ```
 
-| Película | Votos | Promedio |
-|---|---|---|
-| Pulp Fiction | 3 | 4.67 |
-| The Green Mile | 3 | 4.67 |
-| Titanic | 3 | 4.67 |
+| pelicula_id | Película | Votos | Promedio |
+|---|---|---|---|
+| `pulp-fiction-1994` | Pulp Fiction | 3 | 4.67 |
+| `the-green-mile-1999` | The Green Mile | 3 | 4.67 |
+| `titanic-1997` | Titanic | 3 | 4.67 |
 
 ## 12. Vecindad de `Tom Hanks` a 2 grados
 
 Un grado de separación son dos saltos (persona → película → persona). El patrón va de
-persona en persona y se corta con `length(ruta) <= $grados * 2`, con `grados` entre 1 y 3.
+persona en persona y hay una variante por grado (`*2..2`, `*2..4` y `*2..6`), así no
+enumera caminos más largos de lo pedido. El ejemplo de 2 grados usa `*2..4`.
 
 ```cypher
 MATCH (a:Persona {nombre: $nombre})
-MATCH ruta = (a)-[:ACTUO_EN|DIRIGIO*2..6]-(otra:Persona)
-WHERE otra <> a AND length(ruta) <= $grados * 2
+MATCH ruta = (a)-[:ACTUO_EN|DIRIGIO*2..4]-(otra:Persona)
+WHERE otra <> a
 WITH otra, min(length(ruta)) AS saltos
 RETURN otra.nombre AS persona, saltos / 2 AS distancia
 ORDER BY distancia, persona
