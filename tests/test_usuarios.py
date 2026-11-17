@@ -144,11 +144,31 @@ def test_calificaciones_de_ordena_por_fecha_descendente(dos_peliculas):
     assert usuarios.calificaciones_de("u77") == []
 
 
-@pytest.mark.parametrize("estrellas", [0, 6, -1, "cinco"])
+@pytest.mark.parametrize("estrellas", [0, 6, -1, 4.5, True, "cinco"])
 def test_estrellas_fuera_de_rango_fallan(estrellas):
     """Las estrellas son un entero de 1 a 5 y se validan antes de tocar la base."""
     with pytest.raises(ValueError, match="estrellas"):
         usuarios.calificar("u01", "el-origen-2010", estrellas)
+
+
+@pytest.mark.integration
+def test_calificar_acepta_un_float_entero(dos_peliculas):
+    """Un `4.0` de un formulario sí es 4 estrellas; un `4.5` ya se rechazó arriba."""
+    assert usuarios.calificar("u01", "el-origen-2010", 4.0)["estrellas"] == 4
+
+
+@pytest.mark.integration
+def test_calificar_normaliza_la_fecha(dos_peliculas):
+    """La fecha se guarda siempre como AAAA-MM-DD para que ordene como texto."""
+    assert usuarios.calificar("u01", "el-origen-2010", 4, fecha="20261105")["fecha"] == (
+        "2026-11-05"
+    )
+    assert usuarios.calificar("u01", "amelie-2001", 5, fecha=date(2026, 11, 5))["fecha"] == (
+        "2026-11-05"
+    )
+
+    with pytest.raises(ValueError, match="formato ISO"):
+        usuarios.calificar("u01", "el-origen-2010", 4, fecha="5/1/2026")
 
 
 @pytest.mark.integration

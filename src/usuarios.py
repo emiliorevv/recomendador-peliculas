@@ -28,6 +28,7 @@ from datetime import date
 from typing import Any
 
 from src.conexion import escribir, leer
+from src.validacion import entero, fecha_iso, texto
 
 ESTRELLAS_MINIMAS = 1
 ESTRELLAS_MAXIMAS = 5
@@ -114,14 +115,6 @@ ORDER BY s.nombre, s.id
 """
 
 
-def _texto(valor: Any, campo: str) -> str:
-    """Texto obligatorio, sin espacios sobrantes."""
-    texto = str(valor).strip() if valor is not None else ""
-    if not texto:
-        raise ValueError(f"El {campo} no puede estar vacío")
-    return texto
-
-
 def _existe(usuario_id: str) -> bool:
     """True si el usuario ya está en el grafo."""
     return obtener_usuario(usuario_id) is not None
@@ -153,11 +146,11 @@ def crear_usuario(nombre: str, usuario_id: str | None = None) -> dict[str, Any]:
     Sin `usuario_id` se usa el siguiente libre (`u13` si están `u01`…`u12`).
     Con un id repetido lanza `ValueError`.
     """
-    nombre = _texto(nombre, "nombre")
+    nombre = texto(nombre, "nombre")
     if usuario_id is None:
         usuario_id = _siguiente_id()
     else:
-        usuario_id = _texto(usuario_id, "id")
+        usuario_id = texto(usuario_id, "id")
         if _existe(usuario_id):
             raise ValueError(f"Ya existe un usuario con el id {usuario_id!r}")
 
@@ -178,7 +171,7 @@ def obtener_usuario(usuario_id: str) -> dict[str, Any] | None:
 def renombrar_usuario(usuario_id: str, nombre: str) -> dict[str, Any]:
     """Cambia el nombre del usuario y lo devuelve."""
     usuario_id = str(usuario_id)
-    nombre = _texto(nombre, "nombre")
+    nombre = texto(nombre, "nombre")
     filas = escribir(RENOMBRAR_USUARIO, id=usuario_id, nombre=nombre)
     if not filas:
         raise ValueError(f"No existe el usuario {usuario_id!r}")
@@ -204,22 +197,14 @@ def calificar(
 ) -> dict[str, Any]:
     """Califica una película: crea la relación o actualiza estrellas y fecha.
 
-    `estrellas` es un entero de 1 a 5 y `fecha` va en ISO; por defecto, hoy.
+    `estrellas` es un entero de 1 a 5 (un `4.5` se rechaza, no se trunca) y
+    `fecha` va en ISO; por defecto, hoy. La fecha se normaliza a `AAAA-MM-DD`
+    para que `calificaciones_de` la pueda ordenar como texto.
     """
     usuario_id = str(usuario_id)
     pelicula_id = str(pelicula_id)
-    if isinstance(estrellas, bool):
-        raise ValueError("Las estrellas deben ser un número entero de 1 a 5")
-    try:
-        estrellas = int(estrellas)
-    except (TypeError, ValueError):
-        raise ValueError(
-            f"Las estrellas deben ser un número entero de 1 a 5, recibí {estrellas!r}"
-        ) from None
-    if not ESTRELLAS_MINIMAS <= estrellas <= ESTRELLAS_MAXIMAS:
-        raise ValueError(f"Las estrellas deben estar entre 1 y 5, recibí {estrellas}")
-
-    fecha = date.today().isoformat() if fecha is None else _texto(fecha, "fecha")
+    estrellas = entero(estrellas, "número de estrellas", ESTRELLAS_MINIMAS, ESTRELLAS_MAXIMAS)
+    fecha = date.today().isoformat() if fecha is None else fecha_iso(fecha)
 
     _obtener_o_fallar(usuario_id)
     if not _pelicula_existe(pelicula_id):
