@@ -34,7 +34,7 @@ Resultado contra AuraDB (`Neo4j Kernel 5.27-aura`, base `79af95ef`): las 5 sente
 
 ## 2. Crear película con géneros, director y actores
 
-`src/peliculas.py::crear_pelicula` valida los datos en Python (título no vacío, año 1888–2027, duración 1–600 min, al menos un género) y deriva el `id` como `titulo-anio`: "Batman Begins", 2005 → `batman-begins-2005`. Después corre cuatro consultas con parámetros. Los nodos `:Genero` y `:Persona` se comparten entre películas, así que se crean con `MERGE` y nunca se duplican.
+`src/peliculas.py::crear_pelicula` valida los datos en Python (título no vacío, año 1888–2027, duración 1–600 min, al menos un género) y deriva el `id` como `titulo-anio`: "Batman Begins", 2005 → `batman-begins-2005`. Después corre estas cuatro consultas con parámetros, todas dentro de una sola transacción (`sesion.execute_write`): si una falla, la película no queda creada a medias. Los nodos `:Genero` y `:Persona` se comparten entre películas, así que se crean con `MERGE` y nunca se duplican.
 
 ```cypher
 CREATE (p:Pelicula {id: $id, titulo: $titulo, anio: $anio, duracion: $duracion})
@@ -147,7 +147,7 @@ MATCH (p:Pelicula {id: $id})<-[r:ACTUO_EN]-(:Persona)
 DELETE r
 ```
 
-Después de cada borrado corren los `MERGE` de §2 con la lista nueva (`DE_GENERO`, `DIRIGIO` o `ACTUO_EN`). Un `MATCH` sin resultados borra cero relaciones, así que el reemplazo funciona igual si la película no tenía ese tipo de relación. `actores=[]` deja la película sin reparto; los géneros no pueden quedar vacíos.
+Después de cada borrado corren los `MERGE` de §2 con la lista nueva (`DE_GENERO`, `DIRIGIO` o `ACTUO_EN`). Un `MATCH` sin resultados borra cero relaciones, así que el reemplazo funciona igual si la película no tenía ese tipo de relación. `actores=[]` deja la película sin reparto; los géneros no pueden quedar vacíos. Para el director hay tres casos: `None` no cambia nada, `director=""` **quita** el director (borra `DIRIGIO` sin crear otra) y un texto lo reemplaza. Todas las escrituras de la actualización van en una sola transacción: si una falla, la película queda exactamente como estaba.
 
 Resultado contra AuraDB de actualizar la película del ejemplo (duración 101 → 112, géneros `["Drama", "Terror"]` → `["Suspenso"]`, director y un actor nuevos):
 

@@ -89,9 +89,10 @@ Cada PR es una rama desde `main`, chica y revisable, y se mergea antes de empeza
 ├── requirements.txt       # dependencias de la app
 ├── requirements-dev.txt   # dependencias de desarrollo (pytest, Ruff)
 ├── src/
-│   ├── conexion.py        # driver, credenciales, leer/escribir (PR 3)
+│   ├── conexion.py        # driver, credenciales, leer/escribir, transacciones (PR 3)
 │   ├── peliculas.py       # CRUD de películas (PR 5)
 │   ├── usuarios.py        # CRUD de usuarios y calificaciones (PR 5)
+│   ├── validacion.py      # validaciones compartidas del CRUD (PR 5)
 │   └── consultas.py       # recomendaciones, caminos y vecindad (PR 6)
 ├── seed/
 │   ├── esquema.cypher     # restricciones e índices (PR 3)
@@ -175,8 +176,9 @@ Al final imprime los conteos del grafo y valida según el modo:
 
 > Si al conectar aparece `SSL: CERTIFICATE_VERIFY_FAILED` o `Unable to retrieve routing information`
 > en macOS, al intérprete le faltan los certificados raíz. `src/conexion.py` ya apunta
-> `SSL_CERT_FILE` al bundle de `certifi` cuando la variable no está definida, así que no hay que
-> exportar nada; si se quiere usar otro trust store, basta con definir `SSL_CERT_FILE` a mano.
+> `SSL_CERT_FILE` al bundle de `certifi` cuando la variable no está definida **y** el contexto TLS
+> del sistema no tiene ninguna CA, así que no hay que exportar nada; si el sistema sí tiene CAs
+> (por ejemplo la de un proxy corporativo) o se define `SSL_CERT_FILE` a mano, no se toca nada.
 
 ### Pruebas y estilo
 
