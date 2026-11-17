@@ -211,6 +211,24 @@ instante: la app no cachea datos.
 > del sistema no tiene ninguna CA, así que no hay que exportar nada; si el sistema sí tiene CAs
 > (por ejemplo la de un proxy corporativo) o se define `SSL_CERT_FILE` a mano, no se toca nada.
 
+### Demo en la nube (opcional)
+
+La app se publica en **Streamlit Community Cloud**, que es gratis y corre Streamlit de forma nativa.
+Vercel no sirve para esto (es serverless y Streamlit necesita un proceso Python con WebSockets) y
+Render puede correrla, pero el plan free duerme la instancia y el arranque en frío tarda cerca de un
+minuto, justo cuando se está exponiendo.
+
+1. Entra a https://share.streamlit.io con la cuenta de GitHub del repo.
+2. **New app** → repositorio `emiliorevv/recomendador-peliculas`, rama `main`, archivo `app.py`.
+3. En **Advanced settings → Secrets**, pega las credenciales en formato TOML (la plantilla está en
+   `.streamlit/secrets.toml.example`). Ahí no va el `.env`: la app lee `st.secrets` y lo pasa al
+   driver.
+4. **Deploy**.
+
+La app puede escribir en la base, así que si queda pública cualquiera con el enlace puede crear o
+borrar datos de la demo. Para la presentación conviene dejarla privada (se comparte por correo) o
+correr `python seed/seed.py --reset` antes de exponer.
+
 ### Pruebas y estilo
 
 ```bash
