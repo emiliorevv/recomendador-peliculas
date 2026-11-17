@@ -159,10 +159,18 @@ python seed/seed.py --reset    # primero borra el grafo y después carga desde c
 
 Lee `data/peliculas.json` y `data/usuarios.json` y crea los nodos y relaciones con `MERGE`
 (35 películas, 74 personas, 10 géneros, 12 usuarios, 95 calificaciones y 36 relaciones `SIGUE`),
-así que correrlo dos veces no duplica nada. Al final imprime los conteos del grafo y falla con un
-mensaje claro si no coinciden con los esperados.
+así que correrlo dos veces no duplica nada. Aplica el esquema al empezar (es idempotente), así que
+una instancia nueva queda lista con una sola corrida.
 
-> Se aplica el esquema primero: las restricciones de unicidad son las que respaldan el `MERGE`.
+Al final imprime los conteos del grafo y valida según el modo:
+
+- con `--reset` exige que los conteos coincidan **exactamente** con los JSON, porque se acaba de
+  borrar todo;
+- sin `--reset` solo exige que **todo lo del seed siga presente**, porque el CRUD puede haber
+  agregado usuarios, calificaciones o seguidores. Sale con 0 si el seed está aplicado.
+
+> Con `--reset` el borrado va antes del esquema: así las restricciones se crean aunque el grafo
+> anterior tuviera datos que las violaran.
 
 > Si al conectar aparece `SSL: CERTIFICATE_VERIFY_FAILED` o `Unable to retrieve routing information`
 > en macOS, al intérprete le faltan los certificados raíz: corre `Install Certificates.command` del

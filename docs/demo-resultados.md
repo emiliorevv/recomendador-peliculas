@@ -2,8 +2,12 @@
 
 Salida de las consultas de `docs/catalogo-consultas.md` contra la instancia de AuraDB
 (`Neo4j Kernel 5.27-aura`, base `79af95ef`) después de `python seed/seed.py --reset`.
-Sirve para la demo del miércoles: son los números que debe mostrar la app cuando
-el PR 6 implemente las consultas.
+Sirve para la demo del miércoles: es lo que debe mostrar la app cuando el PR 6
+implemente las consultas.
+
+> Son los números de hoy con estos datos, **no** una expectativa fija: las pruebas del PR 6
+> validan la forma y el orden de cada consulta, no estos valores. Si cambia el seed, se
+> regenera este documento.
 
 ## Estado del grafo tras el seed
 
@@ -24,17 +28,19 @@ el PR 6 implemente las consultas.
 
 ## 8. Recomendación colaborativa para `u01`
 
-Gustos parecidos = otros usuarios que calificaron con 4 o 5 estrellas alguna película
-que `u01` calificó; se recomienda lo que ellos calificaron bien y `u01` no ha visto.
+Gustos parecidos = otros usuarios que calificaron con 4 o 5 estrellas **una película que a `u01`
+también le gustó** (4 o 5 estrellas). Se recomienda lo que ellos calificaron bien y `u01` no ha
+visto. El `WITH DISTINCT yo, otro` deja un solo registro por usuario parecido, así que `avg()` no
+se pondera por películas en común.
 
 ```cypher
-MATCH (yo:Usuario {id: $usuario})-[mia:CALIFICO]->(vista:Pelicula)
-MATCH (otro:Usuario)-[suya:CALIFICO]->(vista)
-WHERE otro <> yo AND suya.estrellas >= 4
+MATCH (yo:Usuario {id: $usuario})-[mia:CALIFICO]->(vista:Pelicula)<-[suya:CALIFICO]-(otro:Usuario)
+WHERE otro <> yo AND mia.estrellas >= 4 AND suya.estrellas >= 4
+WITH DISTINCT yo, otro
 MATCH (otro)-[otra:CALIFICO]->(recomendada:Pelicula)
-WHERE NOT (yo)-[:CALIFICO]->(recomendada) AND otra.estrellas >= 4
+WHERE otra.estrellas >= 4 AND NOT (yo)-[:CALIFICO]->(recomendada)
 RETURN recomendada.titulo AS pelicula,
-       count(DISTINCT otro) AS usuarios_parecidos,
+       count(otro) AS usuarios_parecidos,
        round(avg(otra.estrellas), 2) AS promedio
 ORDER BY usuarios_parecidos DESC, promedio DESC, pelicula
 LIMIT 10
@@ -42,7 +48,7 @@ LIMIT 10
 
 | Película | Usuarios parecidos | Promedio |
 |---|---|---|
-| Oppenheimer | 3 | 4.38 |
+| Oppenheimer | 3 | 4.33 |
 | Toy Story | 2 | 5.0 |
 | Eternal Sunshine of the Spotless Mind | 2 | 4.5 |
 | Iron Man | 2 | 4.5 |
