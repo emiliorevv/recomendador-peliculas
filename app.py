@@ -17,6 +17,7 @@ escribe se ve de inmediato.
 
 from __future__ import annotations
 
+import os
 import time
 import unicodedata
 from collections.abc import Callable
@@ -55,6 +56,32 @@ from src.usuarios import (
     seguidores_de,
     seguir,
 )
+
+VARIABLES_NEO4J = ("NEO4J_URI", "NEO4J_USERNAME", "NEO4J_PASSWORD", "NEO4J_DATABASE")
+
+
+def _credenciales_desde_secrets() -> None:
+    """Copia las credenciales de `st.secrets` al entorno, si existen.
+
+    En Streamlit Community Cloud las credenciales se cargan en el panel de
+    secretos de la app; en local vienen del `.env`. `src.conexion` lee variables
+    de entorno, así que aquí se unifican. Sin archivo de secretos no hace nada.
+    """
+    try:
+        secretos = st.secrets
+    except Exception:  # sin `secrets.toml` local, Streamlit lanza FileNotFoundError
+        return
+
+    for clave in VARIABLES_NEO4J:
+        try:
+            valor = secretos[clave]
+        except Exception:  # la clave no está en los secretos de la app
+            continue
+        if valor and not os.getenv(clave):
+            os.environ[clave] = str(valor)
+
+
+_credenciales_desde_secrets()
 
 SECCIONES = ("Películas", "Usuarios", "Recomendaciones", "Caminos")
 OPERACIONES_PELICULAS = ("Ver detalle", "Agregar", "Editar", "Eliminar")
