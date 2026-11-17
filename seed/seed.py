@@ -45,7 +45,6 @@ RAIZ = Path(__file__).resolve().parents[1]
 if str(RAIZ) not in sys.path:
     sys.path.insert(0, str(RAIZ))
 
-from seed.esquema import aplicar as aplicar_esquema  # noqa: E402
 from src.conexion import cerrar_driver, escribir, leer  # noqa: E402
 
 ARCHIVO_PELICULAS = RAIZ / "data" / "peliculas.json"
@@ -250,6 +249,18 @@ def esperados(peliculas: list[dict], usuarios: list[dict]) -> dict[str, int]:
 def resetear(ejecutar: Callable[..., object] = escribir) -> None:
     """Borra todos los nodos y relaciones del grafo."""
     ejecutar(BORRAR_TODO)
+
+
+def aplicar_esquema() -> int:
+    """Aplica restricciones e índices (`seed/esquema.py`) y devuelve cuántos ejecutó.
+
+    El import va adentro para que el módulo funcione igual como script
+    (`python seed/seed.py`) y como paquete (`from seed import seed`): cuando corre
+    como script, `seed` no está en el camino hasta que `RAIZ` entra en `sys.path`.
+    """
+    from seed.esquema import aplicar
+
+    return aplicar()
 
 
 def cargar(
