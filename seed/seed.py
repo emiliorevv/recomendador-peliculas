@@ -11,8 +11,26 @@ nodo o relación se escribe con una sola consulta: las filas viajan como una lis
 de parámetros y el Cypher las recorre con `UNWIND`. Nunca es una consulta por
 fila.
 
-Antes de correrlo conviene aplicar el esquema (`python seed/esquema.py`): las
-restricciones de unicidad son las que respaldan el `MERGE`.
+El esquema (restricciones e índices de `seed/esquema.py`) se aplica en cada
+corrida, porque es idempotente. El orden cambia según el modo:
+
+- con `--reset` se borra primero y el esquema va después, así las restricciones
+  se pueden crear aunque el grafo anterior tuviera datos que las violaran (por
+  ejemplo ids duplicados creados a mano);
+- sin `--reset` el esquema va antes de cargar: los `MERGE` siempre corren con sus
+  restricciones e índices ya puestos.
+
+Qué valida al final:
+
+- con `--reset` el grafo debe quedar con exactamente los conteos que declaran los
+  JSON, porque se acaba de borrar todo;
+- sin `--reset` el grafo puede tener más datos (el CRUD agrega usuarios,
+  calificaciones y seguidores), así que solo se exige que todo lo del seed siga
+  presente: cada id de película, usuario, persona y género, y cada pareja
+  `CALIFICO`, `SIGUE`, `ACTUO_EN`, `DIRIGIO` y `DE_GENERO`.
+
+El código de salida 0 significa "el seed está aplicado", no "el grafo tiene
+exactamente estos números".
 """
 
 from __future__ import annotations
@@ -27,14 +45,11 @@ RAIZ = Path(__file__).resolve().parents[1]
 if str(RAIZ) not in sys.path:
     sys.path.insert(0, str(RAIZ))
 
+from seed.esquema import aplicar as aplicar_esquema  # noqa: E402
 from src.conexion import cerrar_driver, escribir, leer  # noqa: E402
 
 ARCHIVO_PELICULAS = RAIZ / "data" / "peliculas.json"
 ARCHIVO_USUARIOS = RAIZ / "data" / "usuarios.json"
-
-# Conteos fijos del entregable. Si alguien edita los JSON sin querer, esto lo dice.
-ESPERADOS_NODOS = {"peliculas": 35, "personas": 74, "generos": 10, "usuarios": 12}
-ESPERADOS_RELACIONES = {"califico": 95, "sigue": 36}
 
 MERGE_GENEROS = """
 UNWIND $nombres AS nombre
@@ -107,6 +122,25 @@ RETURN COUNT { (p:Pelicula) } AS peliculas,
        COUNT { ()-[:DE_GENERO]->() } AS de_genero,
        COUNT { ()-[:CALIFICO]->() } AS califico,
        COUNT { ()-[:SIGUE]->() } AS sigue
+"""
+
+# Las claves de las relaciones se arman como "origen|destino" para compararlas
+# como texto; es el mismo formato que usa `claves_del_seed`.
+CONSULTA_CLAVES = """
+RETURN COLLECT { MATCH (p:Pelicula) RETURN p.id } AS peliculas,
+       COLLECT { MATCH (p:Persona) RETURN p.nombre } AS personas,
+       COLLECT { MATCH (g:Genero) RETURN g.nombre } AS generos,
+       COLLECT { MATCH (u:Usuario) RETURN u.id } AS usuarios,
+       COLLECT { MATCH (a:Persona)-[:ACTUO_EN]->(p:Pelicula)
+                 RETURN a.nombre + '|' + p.id } AS actuo_en,
+       COLLECT { MATCH (d:Persona)-[:DIRIGIO]->(p:Pelicula)
+                 RETURN d.nombre + '|' + p.id } AS dirigio,
+       COLLECT { MATCH (p:Pelicula)-[:DE_GENERO]->(g:Genero)
+                 RETURN p.id + '|' + g.nombre } AS de_genero,
+       COLLECT { MATCH (u:Usuario)-[:CALIFICO]->(p:Pelicula)
+                 RETURN u.id + '|' + p.id } AS califico,
+       COLLECT { MATCH (a:Usuario)-[:SIGUE]->(b:Usuario)
+                 RETURN a.id + '|' + b.id } AS sigue
 """
 
 
@@ -182,20 +216,35 @@ def filas_de_seguidores(usuarios: list[dict]) -> list[dict]:
     ]
 
 
-def esperados(peliculas: list[dict], usuarios: list[dict]) -> dict[str, int]:
-    """Conteos que debe dejar la carga en el grafo.
+def _pareja(origen: str, destino: str) -> str:
+    """Clave de una relación: sus dos extremos unidos con `|`."""
+    return f"{origen}|{destino}"
 
-    Los de nodos, `CALIFICO` y `SIGUE` son los del entregable; los de `ACTUO_EN`,
-    `DIRIGIO` y `DE_GENERO` se cuentan en los JSON para que agregar una película no
-    obligue a tocar el script.
+
+def claves_del_seed(peliculas: list[dict], usuarios: list[dict]) -> dict[str, set[str]]:
+    """Claves que el seed declara, en el mismo formato que las del grafo.
+
+    Se guardan como `set` para que los duplicados de los JSON no cuenten doble:
+    `MERGE` también los colapsa en el grafo.
     """
     return {
-        **ESPERADOS_NODOS,
-        "actuo_en": sum(len(pelicula["actores"]) for pelicula in peliculas),
-        "dirigio": sum(1 for pelicula in peliculas if pelicula.get("director")),
-        "de_genero": sum(len(pelicula["generos"]) for pelicula in peliculas),
-        **ESPERADOS_RELACIONES,
+        "peliculas": {pelicula["id"] for pelicula in peliculas},
+        "personas": set(personas(peliculas)),
+        "generos": set(generos(peliculas)),
+        "usuarios": {usuario["id"] for usuario in usuarios},
+        "actuo_en": {_pareja(f["persona"], f["pelicula"]) for f in filas_de_reparto(peliculas)},
+        "dirigio": {_pareja(f["persona"], f["pelicula"]) for f in filas_de_direccion(peliculas)},
+        "de_genero": {_pareja(f["pelicula"], f["genero"]) for f in filas_de_genero(peliculas)},
+        "califico": {
+            _pareja(f["usuario"], f["pelicula"]) for f in filas_de_calificaciones(usuarios)
+        },
+        "sigue": {_pareja(f["seguidor"], f["seguido"]) for f in filas_de_seguidores(usuarios)},
     }
+
+
+def esperados(peliculas: list[dict], usuarios: list[dict]) -> dict[str, int]:
+    """Conteos que declaran los JSON, derivados de sus claves sin repetir."""
+    return {tipo: len(claves) for tipo, claves in claves_del_seed(peliculas, usuarios).items()}
 
 
 def resetear(ejecutar: Callable[..., object] = escribir) -> None:
@@ -227,8 +276,23 @@ def contar(leer_filas: Callable[..., list[dict]] = leer) -> dict[str, int]:
     return {clave: int(valor) for clave, valor in fila.items()}
 
 
+def claves_del_grafo(leer_filas: Callable[..., list[dict]] = leer) -> dict[str, set[str]]:
+    """Las claves que hoy están en el grafo, con el formato de `claves_del_seed`."""
+    fila = leer_filas(CONSULTA_CLAVES)[0]
+    return {tipo: set(valores) for tipo, valores in fila.items()}
+
+
+def faltantes(esperadas: dict[str, set[str]], reales: dict[str, set[str]]) -> dict[str, list[str]]:
+    """Claves del seed que no están en el grafo, por tipo."""
+    return {
+        tipo: sorted(claves - reales.get(tipo, set()))
+        for tipo, claves in esperadas.items()
+        if claves - reales.get(tipo, set())
+    }
+
+
 def diferencias(conteos: dict[str, int], esperados: dict[str, int]) -> dict[str, tuple[int, int]]:
-    """Tipo que no coincide, con el conteo real y el esperado."""
+    """Tipo cuyo conteo no coincide exacto, con el real y el esperado."""
     return {
         tipo: (conteos.get(tipo, 0), esperado)
         for tipo, esperado in esperados.items()
@@ -236,13 +300,37 @@ def diferencias(conteos: dict[str, int], esperados: dict[str, int]) -> dict[str,
     }
 
 
-def _imprimir_resumen(conteos: dict[str, int], esperados: dict[str, int]) -> None:
-    """Imprime una línea por tipo, con el conteo real al lado del esperado."""
-    ancho = max(len(tipo) for tipo in esperados)
-    for tipo, esperado in esperados.items():
+def _problemas_exactos(
+    conteos: dict[str, int], esperados_por_tipo: dict[str, int]
+) -> dict[str, str]:
+    """Problemas del modo `--reset`: el conteo real debe ser igual al esperado."""
+    return {
+        tipo: f"{real} en el grafo, esperado {esperado}"
+        for tipo, (real, esperado) in diferencias(conteos, esperados_por_tipo).items()
+    }
+
+
+def _problemas_por_faltantes(faltan: dict[str, list[str]]) -> dict[str, str]:
+    """Problemas del modo normal: qué claves del seed no llegaron al grafo."""
+    problemas = {}
+    for tipo, claves in faltan.items():
+        muestra = ", ".join(claves[:4])
+        resto = f" y {len(claves) - 4} más" if len(claves) > 4 else ""
+        problemas[tipo] = f"faltan {len(claves)}: {muestra}{resto}"
+    return problemas
+
+
+def _imprimir_resumen(
+    conteos: dict[str, int],
+    esperados_por_tipo: dict[str, int],
+    problemas: dict[str, str],
+) -> None:
+    """Imprime una línea por tipo, con el conteo real al lado del que declaran los JSON."""
+    ancho = max(len(tipo) for tipo in esperados_por_tipo)
+    for tipo, esperado in esperados_por_tipo.items():
         real = conteos.get(tipo, 0)
-        marca = "ok" if real == esperado else "FALLA"
-        print(f"  {tipo:<{ancho}}  {real:>4}  esperado {esperado:>4}  {marca}")
+        marca = "FALLA" if tipo in problemas else "ok"
+        print(f"  {tipo:<{ancho}}  {real:>4}  seed {esperado:>4}  {marca}")
 
 
 def _argumentos(argv: list[str] | None = None) -> argparse.Namespace:
@@ -256,33 +344,44 @@ def _argumentos(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Carga los datos e informa los conteos; devuelve 0 solo si todos coinciden."""
+    """Carga los datos y valida; devuelve 0 solo si el seed quedó aplicado."""
     argumentos = _argumentos(argv)
     peliculas, usuarios = leer_datos()
-    esperados_por_tipo = esperados(peliculas, usuarios)
+    claves = claves_del_seed(peliculas, usuarios)
+    esperados_por_tipo = {tipo: len(valores) for tipo, valores in claves.items()}
 
     try:
         if argumentos.reset:
             print("Borrando el grafo (--reset)…")
             resetear()
+        # Con --reset va después del borrado: así las restricciones se crean aunque
+        # el grafo anterior tuviera datos que las violaran.
+        aplicar_esquema()
+
         print(f"Cargando {len(peliculas)} películas y {len(usuarios)} usuarios…")
         cargar(peliculas, usuarios)
+
         conteos = contar()
+        if argumentos.reset:
+            problemas = _problemas_exactos(conteos, esperados_por_tipo)
+        else:
+            problemas = _problemas_por_faltantes(faltantes(claves, claves_del_grafo()))
     finally:
         cerrar_driver()
 
     print("Resumen del seed:")
-    _imprimir_resumen(conteos, esperados_por_tipo)
+    _imprimir_resumen(conteos, esperados_por_tipo, problemas)
 
-    fallidos = diferencias(conteos, esperados_por_tipo)
-    if fallidos:
-        detalle = ", ".join(
-            f"{tipo}: {real} (esperado {esperado})" for tipo, (real, esperado) in fallidos.items()
-        )
-        print(f"Seed incompleto: los conteos no coinciden. {detalle}", file=sys.stderr)
+    if problemas:
+        print("Seed incompleto: el grafo no quedó como lo declaran los JSON.", file=sys.stderr)
+        for tipo, detalle in problemas.items():
+            print(f"  {tipo}: {detalle}", file=sys.stderr)
         return 1
 
-    print("Seed completo: los conteos coinciden.")
+    if argumentos.reset:
+        print("Seed completo: los conteos coinciden exactamente.")
+    else:
+        print("Seed completo: todo lo del seed está en el grafo.")
     return 0
 
 
