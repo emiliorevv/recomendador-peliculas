@@ -87,7 +87,7 @@ Cada PR es una rama desde `main`, chica y revisable, y se mergea antes de empeza
 ├── app.py                 # interfaz Streamlit (PR 7)
 ├── pyproject.toml         # configuración de Ruff y pytest
 ├── requirements.txt       # dependencias de la app
-├── requirements-dev.txt   # dependencias de desarrollo (pytest, Ruff)
+├── requirements-dev.txt   # dependencias de desarrollo (pytest, Ruff, reportlab)
 ├── src/
 │   ├── conexion.py        # driver, credenciales, leer/escribir, transacciones (PR 3)
 │   ├── peliculas.py       # CRUD de películas (PR 5)
