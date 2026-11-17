@@ -11,6 +11,10 @@ Crear y actualizar usan `MERGE` para los géneros (`:Genero`) y las personas
 antes las relaciones anteriores de ese tipo, así el grafo refleja lo que se
 pidió y no la unión con lo que había.
 
+Crear y actualizar escriben en una sola transacción (`en_transaccion`), así
+que un fallo a mitad de camino no deja una película sin géneros ni un reparto
+sin película.
+
 Todas las consultas van con parámetros (`$id`, `$generos`, …): el texto que
 llega desde la interfaz nunca se pega en el Cypher.
 
@@ -36,7 +40,9 @@ import re
 import unicodedata
 from typing import Any
 
-from src.conexion import escribir, leer
+from neo4j import ManagedTransaction
+from src.conexion import en_transaccion, escribir, leer
+from src.validacion import entero, texto, texto_opcional
 
 ANIO_MINIMO = 1888
 ANIO_MAXIMO = 2027
@@ -141,41 +147,6 @@ def slug(titulo: str, anio: int) -> str:
     return f"{partes}-{anio}"
 
 
-def _texto(valor: Any, campo: str) -> str:
-    """Texto obligatorio, sin espacios sobrantes."""
-    texto = str(valor).strip() if valor is not None else ""
-    if not texto:
-        raise ValueError(f"El {campo} no puede estar vacío")
-    return texto
-
-
-def _texto_opcional(valor: Any, campo: str) -> str | None:
-    """Texto opcional: `None` o vacío quedan en `None` (no se toca la relación)."""
-    if valor is None:
-        return None
-    texto = str(valor).strip()
-    if not texto:
-        return None
-    return texto
-
-
-def _entero(valor: Any, campo: str) -> int:
-    """Entero obligatorio; acepta `"2005"` pero no `True` ni texto con letras."""
-    if isinstance(valor, bool):
-        raise ValueError(f"El {campo} debe ser un número entero, no un booleano")
-    try:
-        return int(valor)
-    except (TypeError, ValueError):
-        raise ValueError(f"El {campo} debe ser un número entero, recibí {valor!r}") from None
-
-
-def _rango(valor: int, campo: str, minimo: int, maximo: int) -> int:
-    """Entero dentro de un rango cerrado."""
-    if not minimo <= valor <= maximo:
-        raise ValueError(f"El {campo} debe estar entre {minimo} y {maximo}, recibí {valor}")
-    return valor
-
-
 def _lista_de_textos(valor: Any, campo: str) -> list[str]:
     """Lista de textos sin vacíos ni repetidos, conservando el orden recibido."""
     if valor is None:
@@ -228,13 +199,14 @@ def crear_pelicula(
     """Crea una película con sus géneros, director y actores y devuelve el detalle.
 
     El `id` sale de `titulo` y `anio`; si ya existe, lanza `ValueError`: para
-    cambiar una película se usa `actualizar_pelicula`.
+    cambiar una película se usa `actualizar_pelicula`. Todas las escrituras van
+    en una sola transacción: o queda la película completa o no queda nada.
     """
-    titulo = _texto(titulo, "título")
-    anio = _rango(_entero(anio, "año"), "año", ANIO_MINIMO, ANIO_MAXIMO)
-    duracion = _rango(_entero(duracion, "duración"), "duración", DURACION_MINIMA, DURACION_MAXIMA)
+    titulo = texto(titulo, "título")
+    anio = entero(anio, "año", ANIO_MINIMO, ANIO_MAXIMO)
+    duracion = entero(duracion, "duración", DURACION_MINIMA, DURACION_MAXIMA)
     generos = _generos_validos(generos)
-    director = _texto_opcional(director, "director")
+    director = texto_opcional(director)
     actores = _lista_de_textos(actores, "actores")
 
     pelicula_id = slug(titulo, anio)
@@ -244,12 +216,16 @@ def crear_pelicula(
             "usa actualizar_pelicula para cambiar la que está"
         )
 
-    escribir(CREAR_PELICULA, id=pelicula_id, titulo=titulo, anio=anio, duracion=duracion)
-    escribir(MERGE_GENEROS, id=pelicula_id, generos=generos)
-    if director:
-        escribir(MERGE_DIRECTOR, id=pelicula_id, director=director)
-    if actores:
-        escribir(MERGE_ACTORES, id=pelicula_id, actores=actores)
+    def escribir_todo(tx: ManagedTransaction) -> None:
+        """Las cuatro escrituras de una alta, en la misma transacción."""
+        tx.run(CREAR_PELICULA, id=pelicula_id, titulo=titulo, anio=anio, duracion=duracion)
+        tx.run(MERGE_GENEROS, id=pelicula_id, generos=generos)
+        if director:
+            tx.run(MERGE_DIRECTOR, id=pelicula_id, director=director)
+        if actores:
+            tx.run(MERGE_ACTORES, id=pelicula_id, actores=actores)
+
+    en_transaccion(escribir_todo)
 
     detalle = obtener_pelicula(pelicula_id)
     assert detalle is not None  # se acaba de crear
@@ -289,41 +265,47 @@ def actualizar_pelicula(
 ) -> dict[str, Any]:
     """Actualiza los campos que llegan y devuelve el detalle.
 
-    `None` significa "no cambiar". Las listas nuevas **reemplazan** las
-    relaciones: los géneros, el director o el reparto anteriores se borran.
-    `actores=[]` deja la película sin reparto; los géneros no pueden quedar
-    vacíos. El `id` no se recalcula aunque cambien `titulo` o `anio`: es la
-    llave que ya referencian las calificaciones.
+    `None` significa "no cambiar". Para el director hay un caso más:
+    `director=""` quita la relación `DIRIGIO`, y un texto la reemplaza por la
+    persona con ese nombre. `actores=[]` deja la película sin reparto; los
+    géneros no pueden quedar vacíos. Todo se escribe en una sola transacción:
+    o se reemplazan todas las relaciones pedidas, o ninguna.
+
+    El `id` no se recalcula aunque cambien `titulo` o `anio`: es la llave que ya
+    referencian las calificaciones.
     """
     pelicula_id = str(pelicula_id)
     if titulo is not None:
-        titulo = _texto(titulo, "título")
+        titulo = texto(titulo, "título")
     if anio is not None:
-        anio = _rango(_entero(anio, "año"), "año", ANIO_MINIMO, ANIO_MAXIMO)
+        anio = entero(anio, "año", ANIO_MINIMO, ANIO_MAXIMO)
     if duracion is not None:
-        duracion = _rango(
-            _entero(duracion, "duración"), "duración", DURACION_MINIMA, DURACION_MAXIMA
-        )
+        duracion = entero(duracion, "duración", DURACION_MINIMA, DURACION_MAXIMA)
     if generos is not None:
         generos = _generos_validos(generos)
-    director = _texto_opcional(director, "director")
+    # `""` es una decisión del formulario (quitar el director); `None` es no cambiar.
+    director = None if director is None else str(director).strip()
     actores = None if actores is None else _lista_de_textos(actores, "actores")
 
     if not _existe(pelicula_id):
         raise ValueError(f"No existe la película {pelicula_id!r}")
 
-    escribir(ACTUALIZAR_PELICULA, id=pelicula_id, titulo=titulo, anio=anio, duracion=duracion)
+    def escribir_todo(tx: ManagedTransaction) -> None:
+        """Propiedades y reemplazos de relaciones, todos en la misma transacción."""
+        tx.run(ACTUALIZAR_PELICULA, id=pelicula_id, titulo=titulo, anio=anio, duracion=duracion)
+        if generos is not None:
+            tx.run(BORRAR_GENEROS, id=pelicula_id)
+            tx.run(MERGE_GENEROS, id=pelicula_id, generos=generos)
+        if director is not None:
+            tx.run(BORRAR_DIRECTOR, id=pelicula_id)
+            if director:
+                tx.run(MERGE_DIRECTOR, id=pelicula_id, director=director)
+        if actores is not None:
+            tx.run(BORRAR_ACTORES, id=pelicula_id)
+            if actores:
+                tx.run(MERGE_ACTORES, id=pelicula_id, actores=actores)
 
-    if generos is not None:
-        escribir(BORRAR_GENEROS, id=pelicula_id)
-        escribir(MERGE_GENEROS, id=pelicula_id, generos=generos)
-    if director is not None:
-        escribir(BORRAR_DIRECTOR, id=pelicula_id)
-        escribir(MERGE_DIRECTOR, id=pelicula_id, director=director)
-    if actores is not None:
-        escribir(BORRAR_ACTORES, id=pelicula_id)
-        if actores:
-            escribir(MERGE_ACTORES, id=pelicula_id, actores=actores)
+    en_transaccion(escribir_todo)
 
     detalle = obtener_pelicula(pelicula_id)
     assert detalle is not None  # se acaba de validar que existe

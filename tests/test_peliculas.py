@@ -8,6 +8,7 @@ Las validaciones corren antes de tocar la base, así que se prueban sin ella.
 from __future__ import annotations
 
 import pytest
+from neo4j.exceptions import ClientError
 from src import peliculas
 
 PELICULA = {
@@ -47,6 +48,7 @@ def test_slug_de_un_titulo_sin_letras_falla():
         ({"anio": 2028}, "año debe estar entre 1888 y 2027"),
         ({"duracion": 0}, "duración debe estar entre 1 y 600"),
         ({"duracion": 601}, "duración debe estar entre 1 y 600"),
+        ({"duracion": 90.5}, "duración debe ser un número entero"),
         ({"generos": []}, "al menos un género"),
         ({"generos": "Drama"}, "lista de textos"),
         ({"anio": "mil"}, "año debe ser un número entero"),
@@ -210,6 +212,77 @@ def test_actualizar_pelicula_inexistente_falla(base_de_pruebas):
     """Actualizar algo que no está es un error, no un alta silenciosa."""
     with pytest.raises(ValueError, match="No existe la película 'no-existe-2020'"):
         peliculas.actualizar_pelicula("no-existe-2020", duracion=100)
+
+
+@pytest.mark.integration
+def test_actualizar_con_director_vacio_quita_la_relacion(base_de_pruebas):
+    """`director=""` (o solo espacios) borra `DIRIGIO`; el nodo `:Persona` queda."""
+    crear()
+
+    assert peliculas.actualizar_pelicula("el-origen-2010", director="")["director"] is None
+
+    detalle = peliculas.obtener_pelicula("el-origen-2010")
+    assert detalle["actores"] == ["Elliot Page", "Leonardo DiCaprio"]
+    with base_de_pruebas.session() as sesion:
+        fila = sesion.run(
+            """
+            MATCH (p:Pelicula {id: 'el-origen-2010'})<-[r:DIRIGIO]-(:Persona)
+            RETURN count(r) AS directores
+            """
+        ).single()
+        persona = sesion.run(
+            "MATCH (p:Persona {nombre: 'Christopher Nolan'}) RETURN count(p) AS total"
+        ).single()
+    assert fila["directores"] == 0
+    # El director anterior no se borra como nodo: es compartido con otras películas.
+    assert persona["total"] == 1
+
+
+@pytest.mark.integration
+def test_crear_es_atomico_si_falla_una_escritura(base_de_pruebas, monkeypatch):
+    """Si revienta el reparto (la última escritura), no queda película ni géneros."""
+    monkeypatch.setattr(
+        peliculas,
+        "MERGE_ACTORES",
+        "MATCH (p:Pelicula {id: $id}) RETURN $parametro_inexistente",
+    )
+
+    with pytest.raises(ClientError):
+        crear()
+
+    assert peliculas.obtener_pelicula("el-origen-2010") is None
+    with base_de_pruebas.session() as sesion:
+        fila = sesion.run(
+            """
+            RETURN COUNT { (p:Pelicula) } AS peliculas,
+                   COUNT { (g:Genero) } AS generos,
+                   COUNT { (a:Persona) } AS personas
+            """
+        ).single()
+    # Nada de la alta sobrevivió: ni el nodo, ni los géneros que se habían creado.
+    assert dict(fila) == {"peliculas": 0, "generos": 0, "personas": 0}
+
+
+@pytest.mark.integration
+def test_actualizar_es_atomico_si_falla_una_escritura(base_de_pruebas, monkeypatch):
+    """Si falla el reemplazo del reparto, la película conserva todo lo anterior."""
+    original = crear(generos=["Drama"], actores=["Leonardo DiCaprio"])
+    monkeypatch.setattr(
+        peliculas,
+        "MERGE_ACTORES",
+        "MATCH (p:Pelicula {id: $id}) RETURN $parametro_inexistente",
+    )
+
+    with pytest.raises(ClientError):
+        peliculas.actualizar_pelicula(
+            "el-origen-2010",
+            titulo="Otro título",
+            generos=["Terror"],
+            director="David Fincher",
+            actores=["Elliot Page"],
+        )
+
+    assert peliculas.obtener_pelicula("el-origen-2010") == original
 
 
 @pytest.mark.integration
