@@ -61,6 +61,25 @@ def test_cerrar_driver_limpia_el_singleton_si_close_falla(monkeypatch, sin_drive
     assert conexion._driver is None
 
 
+def test_configurar_certificados_usa_certifi(monkeypatch):
+    """Sin SSL_CERT_FILE el módulo apunta el trust store al bundle de certifi."""
+    certificados = pytest.importorskip("certifi")
+    monkeypatch.delenv("SSL_CERT_FILE", raising=False)
+
+    conexion._configurar_certificados()
+
+    assert os.environ["SSL_CERT_FILE"] == certificados.where()
+
+
+def test_configurar_certificados_respeta_el_valor_del_usuario(monkeypatch):
+    """Si ya hay SSL_CERT_FILE, no se pisa: puede ser una configuración a propósito."""
+    monkeypatch.setenv("SSL_CERT_FILE", "/ruta/a/mis/certificados.pem")
+
+    conexion._configurar_certificados()
+
+    assert os.environ["SSL_CERT_FILE"] == "/ruta/a/mis/certificados.pem"
+
+
 def test_obtener_driver_crea_uno_solo_entre_hilos(monkeypatch, sin_driver):
     """Varios hilos pidiendo el driver a la vez comparten una única instancia."""
 

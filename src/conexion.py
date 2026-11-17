@@ -55,6 +55,26 @@ def _base_de_datos() -> str | None:
     return os.getenv("NEO4J_DATABASE") or None
 
 
+def _configurar_certificados() -> None:
+    """Da un trust store al intérprete si no lo trae.
+
+    Los Python que se instalan desde python.org en macOS no incluyen los
+    certificados raíz, así que el TLS contra AuraDB falla con
+    `SSL: CERTIFICATE_VERIFY_FAILED` o, de forma menos obvia,
+    `ServiceUnavailable: Unable to retrieve routing information`. `certifi`
+    trae un bundle actualizado: se apunta `SSL_CERT_FILE` a él solo si el
+    usuario no lo definió, para no pisar una configuración propia.
+    """
+    if os.getenv("SSL_CERT_FILE"):
+        return
+    try:
+        import certifi
+    except ImportError:
+        # Sin certifi se deja todo como estaba: el error de TLS lo explicará el driver.
+        return
+    os.environ["SSL_CERT_FILE"] = certifi.where()
+
+
 def obtener_driver() -> Driver:
     """Devuelve el driver único, creándolo la primera vez (singleton seguro entre hilos)."""
     global _driver
@@ -63,6 +83,7 @@ def obtener_driver() -> Driver:
             # Doble verificación: otro hilo pudo crearlo mientras esperábamos.
             if _driver is None:
                 credenciales = _credenciales()
+                _configurar_certificados()
                 _driver = GraphDatabase.driver(
                     credenciales["NEO4J_URI"],
                     auth=(credenciales["NEO4J_USERNAME"], credenciales["NEO4J_PASSWORD"]),
