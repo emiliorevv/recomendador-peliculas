@@ -11,12 +11,12 @@ Cada consulta se agrega aquí en el PR que la implementa, con el Cypher exacto q
 | 5 | Eliminar película (`DETACH DELETE`) | CRUD (D) | 5 | Implementado |
 | 6 | Crear, listar, renombrar y eliminar usuario | CRUD | 5 | Implementado |
 | 7 | Calificar (`MERGE` = crear o actualizar) y quitar calificación | CRUD | 5 | Implementado |
-| 8 | Recomendación colaborativa | Recorrido | 6 | Pendiente |
-| 9 | Películas parecidas | Vecindad | 6 | Pendiente |
-| 10 | Top por género | Agregación | 6 | Pendiente |
-| 11 | Camino más corto entre personas | Camino | 6 | Pendiente |
-| 12 | Vecindad de una persona a N grados | Vecindad | 6 | Pendiente |
-| 13 | A quién seguir | Recorrido | 6 | Pendiente |
+| 8 | Recomendación colaborativa | Recorrido | 6 | Implementado |
+| 9 | Películas parecidas | Vecindad | 6 | Implementado |
+| 10 | Top por género | Agregación | 6 | Implementado |
+| 11 | Camino más corto entre personas | Camino | 6 | Implementado |
+| 12 | Vecindad de una persona a N grados | Vecindad | 6 | Implementado |
+| 13 | A quién seguir | Recorrido | 6 | Implementado |
 
 ## 1. Restricciones e índices
 
@@ -266,3 +266,176 @@ Resultado contra AuraDB, con `u13` y `inception-2010`: `calificar("u13", "incept
 | `inception-2010` | Inception | 5 | 2026-11-16 |
 
 `quitar_calificacion("u13", "inception-2010")` devolvió `True` y la segunda llamada `False` porque la relación ya no estaba. El grafo quedó en los 131 nodos y 368 relaciones del seed.
+
+## 8. Recomendación colaborativa
+
+`recomendar(usuario_id, limite=10)` en `src/consultas.py` recorre usuario → película → usuario. Gustos parecidos son los usuarios que calificaron con 4 o 5 estrellas **una película que al usuario también le gustó** (4 o 5). Después se recomienda lo que esos usuarios calificaron bien y el usuario no ha visto.
+
+Dos detalles hacen que el resultado sea el correcto: `WITH DISTINCT yo, otro` deja un solo registro por usuario parecido, así `count(otro)` no se pondera por las películas que comparten; y el `NOT (yo)-[:CALIFICO]->(recomendada)` excluye **todo** lo que el usuario ya calificó, tenga las estrellas que tenga. Un usuario inexistente lanza `ValueError`; un usuario válido sin coincidencias devuelve `[]`.
+
+```cypher
+MATCH (yo:Usuario {id: $id})-[mia:CALIFICO]->(:Pelicula)<-[suya:CALIFICO]-(otro:Usuario)
+WHERE otro <> yo AND mia.estrellas >= 4 AND suya.estrellas >= 4
+WITH DISTINCT yo, otro
+MATCH (otro)-[otra:CALIFICO]->(recomendada:Pelicula)
+WHERE otra.estrellas >= 4 AND NOT (yo)-[:CALIFICO]->(recomendada)
+RETURN recomendada.titulo AS pelicula,
+       count(otro) AS usuarios_parecidos,
+       round(avg(otra.estrellas), 2) AS promedio
+ORDER BY usuarios_parecidos DESC, promedio DESC, pelicula
+LIMIT $limite
+```
+
+Resultado contra AuraDB para `recomendar("u01")`:
+
+| Película | Usuarios parecidos | Promedio |
+|---|---|---|
+| Oppenheimer | 3 | 4.33 |
+| Toy Story | 2 | 5.0 |
+| Eternal Sunshine of the Spotless Mind | 2 | 4.5 |
+| Iron Man | 2 | 4.5 |
+| La La Land | 2 | 4.0 |
+| The Sixth Sense | 2 | 4.0 |
+| Toy Story 2 | 2 | 4.0 |
+| A Quiet Place | 1 | 5.0 |
+| Django Unchained | 1 | 5.0 |
+| Fight Club | 1 | 5.0 |
+
+## 9. Películas parecidas
+
+`peliculas_parecidas(pelicula_id, limite=10)` compara la película base contra todas las demás con tres subconsultas `COUNT { }`, que cuentan sin multiplicar filas como harían tres `MATCH` encadenados. El puntaje es:
+
+```text
+puntos = actores_comunes + 2 * mismo_director + generos_comunes
+```
+
+Compartir un actor suma uno, compartir director pesa el doble y cada género en común suma uno. Las películas con puntaje 0 no son parecidas y se descartan. El resultado trae el desglose (`actores_comunes`, `mismo_director`, `generos_comunes`) para que la app pueda explicar el puntaje. Una película inexistente lanza `ValueError`.
+
+```cypher
+MATCH (base:Pelicula {id: $id})
+MATCH (otra:Pelicula)
+WHERE otra <> base
+WITH base, otra,
+     COUNT { (base)-[:DE_GENERO]->(:Genero)<-[:DE_GENERO]-(otra) } AS generos_comunes,
+     COUNT { (base)<-[:ACTUO_EN]-(:Persona)-[:ACTUO_EN]->(otra) } AS actores_comunes,
+     COUNT { (base)<-[:DIRIGIO]-(:Persona)-[:DIRIGIO]->(otra) } AS mismo_director
+WITH otra, generos_comunes, actores_comunes, mismo_director,
+     actores_comunes + 2 * mismo_director + generos_comunes AS puntos
+WHERE puntos > 0
+RETURN otra.id AS pelicula_id,
+       otra.titulo AS titulo,
+       puntos,
+       actores_comunes,
+       mismo_director,
+       generos_comunes
+ORDER BY puntos DESC, titulo
+LIMIT $limite
+```
+
+Resultado contra AuraDB para `peliculas_parecidas("inception-2010")`, primeras cinco:
+
+| Película | Puntos | Actores | Director | Géneros |
+|---|---|---|---|---|
+| The Dark Knight Rises | 6 | 2 | 1 | 2 |
+| The Dark Knight | 5 | 1 | 1 | 2 |
+| Batman Begins | 4 | 1 | 1 | 1 |
+| Captain America: The Winter Soldier | 3 | 0 | 0 | 3 |
+| Interstellar | 3 | 0 | 1 | 1 |
+
+## 10. Top por género
+
+`top_por_genero(genero, limite=10)` ordena por promedio descendente y desempata por cantidad de votos y después por título, para que dos corridas den lo mismo. Solo entran películas con al menos una calificación: sin votos no hay promedio que ordenar. El promedio va redondeado a dos decimales y se devuelve el conteo de votos para que la app muestre "4.67 (3 votos)". Un género sin películas calificadas devuelve `[]`, no un error.
+
+```cypher
+MATCH (p:Pelicula)-[:DE_GENERO]->(:Genero {nombre: $genero})
+MATCH (p)<-[c:CALIFICO]-(:Usuario)
+RETURN p.titulo AS titulo,
+       round(avg(c.estrellas), 2) AS promedio,
+       count(c) AS votos
+ORDER BY promedio DESC, votos DESC, titulo
+LIMIT $limite
+```
+
+Resultado contra AuraDB para `top_por_genero("Drama", limite=3)`:
+
+| Película | Promedio | Votos |
+|---|---|---|
+| Pulp Fiction | 4.67 | 3 |
+| The Green Mile | 4.67 | 3 |
+| Titanic | 4.67 | 3 |
+
+## 11. Camino más corto entre personas
+
+`camino_entre_personas(origen, destino)` usa `shortestPath` sobre `ACTUO_EN` y `DIRIGIO` recorridas en los dos sentidos. El patrón va de persona a persona alternando películas, así que el tope `*..12` mantiene la idea de "seis grados" (12 saltos = 6 personas intermedias) y evita que el recorrido variable se expanda sin límite. Si alguna de las dos personas no existe, `ValueError`; si existe pero no hay camino, `{"encontrado": False, "saltos": 0, "camino": []}`.
+
+```cypher
+MATCH (a:Persona {nombre: $origen}), (b:Persona {nombre: $destino})
+MATCH camino = shortestPath((a)-[:ACTUO_EN|DIRIGIO*..12]-(b))
+RETURN [n IN nodes(camino) | coalesce(n.nombre, n.titulo)] AS camino,
+       length(camino) AS saltos
+```
+
+Resultado contra AuraDB para `camino_entre_personas("Tom Hanks", "Scarlett Johansson")`:
+
+```text
+Tom Hanks → The Green Mile → Sam Rockwell → Jojo Rabbit → Scarlett Johansson
+```
+
+`saltos: 4`, contando cada relación del camino; las personas y las películas se alternan.
+
+## 12. Vecindad de una persona a N grados
+
+`vecindad(nombre, grados=2, limite=25)` devuelve las personas alrededor de una persona con su distancia. En este grafo las personas solo se tocan a través de una película, así que **un grado de separación son dos saltos**: compartir película. El patrón va de persona en persona (`*2..6`, longitudes pares) y el `WHERE` corta en `$grados * 2`; `grados` se valida como entero de 1 a 3. Una persona inexistente lanza `ValueError`.
+
+```cypher
+MATCH (a:Persona {nombre: $nombre})
+MATCH ruta = (a)-[:ACTUO_EN|DIRIGIO*2..6]-(otra:Persona)
+WHERE otra <> a AND length(ruta) <= $grados * 2
+WITH otra, min(length(ruta)) AS saltos
+RETURN otra.nombre AS persona, saltos / 2 AS distancia
+ORDER BY distancia, persona
+LIMIT $limite
+```
+
+Resultado contra AuraDB para `vecindad("Tom Hanks", grados=2)`:
+
+| Persona | Distancia |
+|---|---|
+| Don Rickles | 1 |
+| Frank Darabont | 1 |
+| John Lasseter | 1 |
+| Lee Unkrich | 1 |
+| Michael Clarke Duncan | 1 |
+| Sam Rockwell | 1 |
+| Tim Allen | 1 |
+| Scarlett Johansson | 2 |
+| Taika Waititi | 2 |
+
+Con `grados=1` salen solo las siete personas de distancia 1: los compañeros de reparto de sus películas y sus directores.
+
+## 13. A quién seguir
+
+`a_quien_seguir(usuario_id, limite=10)` busca usuarios que siguen a alguien que el usuario sigue (amigos de amigos), excluye al propio usuario y a quien ya sigue, y cuenta los amigos en común con `count(DISTINCT amigo)`. Un usuario inexistente lanza `ValueError`; uno sin amigos de amigos devuelve `[]`.
+
+```cypher
+MATCH (yo:Usuario {id: $id})-[:SIGUE]->(amigo:Usuario)-[:SIGUE]->(sugerido:Usuario)
+WHERE sugerido <> yo AND NOT (yo)-[:SIGUE]->(sugerido)
+WITH sugerido, count(DISTINCT amigo) AS amigos_en_comun
+RETURN sugerido.id AS usuario_id,
+       sugerido.nombre AS nombre,
+       amigos_en_comun
+ORDER BY amigos_en_comun DESC, nombre, usuario_id
+LIMIT $limite
+```
+
+Resultado contra AuraDB para `a_quien_seguir("u01")`:
+
+| usuario_id | Nombre | Amigos en común |
+|---|---|---|
+| `u05` | Elena | 2 |
+| `u06` | Fabián | 2 |
+| `u08` | Hugo | 2 |
+| `u09` | Irene | 2 |
+| `u10` | Javier | 2 |
+
+`u01` sigue a `u02`, `u03`, `u04` y `u07`; ninguno de esos cuatro aparece en la lista, y tampoco el propio `u01`.
