@@ -23,6 +23,8 @@ from seed.seed import (
     personas,
 )
 
+# Números del entregable, escritos a mano a propósito: si alguien edita los JSON,
+# esta prueba es la que lo nota.
 ESPERADOS_DEL_ENTREGABLE = {
     "peliculas": 35,
     "personas": 74,
@@ -50,16 +52,75 @@ def base_de_pruebas(monkeypatch, grafo_limpio):
     conexion.cerrar_driver()
 
 
-def test_esperados_salen_de_los_json():
-    """Los conteos esperados son los del entregable, sin hablar con la base."""
+def test_los_json_tienen_los_datos_del_entregable():
+    """Los JSON traen 35 películas, 12 usuarios y los conteos esperados, sin tocar la base."""
     peliculas, usuarios = leer_datos()
 
+    assert len(peliculas) == 35
+    assert len(usuarios) == 12
     assert esperados(peliculas, usuarios) == ESPERADOS_DEL_ENTREGABLE
-    # Y los JSON de verdad tienen esa cantidad de personas y géneros distintos.
+    # Y las claves sin repetir dan lo mismo que los conteos de relaciones.
     assert len(personas(peliculas)) == ESPERADOS_DEL_ENTREGABLE["personas"]
     assert len(generos(peliculas)) == ESPERADOS_DEL_ENTREGABLE["generos"]
     assert len(filas_de_calificaciones(usuarios)) == ESPERADOS_DEL_ENTREGABLE["califico"]
     assert len(filas_de_seguidores(usuarios)) == ESPERADOS_DEL_ENTREGABLE["sigue"]
+
+
+def test_esperados_no_cuentan_duplicados():
+    """MERGE colapsa los duplicados de los JSON, así que los esperados también."""
+    peliculas = [
+        {
+            "id": "x-2000",
+            "titulo": "X",
+            "anio": 2000,
+            "duracion": 90,
+            "generos": ["Drama", "Drama"],
+            "director": "D",
+            "actores": ["A", "A"],
+        },
+        {
+            "id": "x-2000",
+            "titulo": "X",
+            "anio": 2000,
+            "duracion": 90,
+            "generos": ["Drama"],
+            "director": "D",
+            "actores": ["A"],
+        },
+    ]
+    usuarios = [
+        {
+            "id": "u01",
+            "nombre": "Ana",
+            "sigue": ["u01"],
+            "calificaciones": [
+                {"pelicula_id": "x-2000", "estrellas": 5, "fecha": "2025-01-01"},
+                {"pelicula_id": "x-2000", "estrellas": 4, "fecha": "2025-01-02"},
+            ],
+        }
+    ]
+
+    assert esperados(peliculas, usuarios) == {
+        "peliculas": 1,
+        "personas": 2,
+        "generos": 1,
+        "usuarios": 1,
+        "actuo_en": 1,
+        "dirigio": 1,
+        "de_genero": 1,
+        "califico": 1,
+        "sigue": 1,
+    }
+
+
+def test_faltantes_reporta_solo_lo_que_no_esta():
+    """La validación normal mira presencia, no igualdad: lo que sobra en el grafo no es problema."""
+    esperadas = {"peliculas": {"a", "b"}, "califico": {"u01|a"}}
+
+    assert seed.faltantes(esperadas, {"peliculas": {"a"}, "califico": {"u01|a"}}) == {
+        "peliculas": ["b"]
+    }
+    assert seed.faltantes(esperadas, {"peliculas": {"a", "b", "z"}, "califico": {"u01|a"}}) == {}
 
 
 @pytest.mark.integration
@@ -94,3 +155,33 @@ def test_reset_vuelve_al_estado_inicial(base_de_pruebas):
     assert seed.main(["--reset"]) == 0
 
     assert seed.contar() == antes
+
+
+@pytest.mark.integration
+def test_el_crud_puede_agregar_datos_sin_romper_el_seed(base_de_pruebas):
+    """Un usuario y una calificación del CRUD no hacen fallar el seed ni duplican lo suyo."""
+    assert seed.main([]) == 0
+    antes = seed.contar()
+
+    # Lo que hará el CRUD del PR 5: un usuario nuevo que califica una película.
+    with base_de_pruebas.session() as sesion:
+        sesion.run(
+            """
+            CREATE (u:Usuario {id: 'u99', nombre: 'Invitada'})
+            WITH u
+            MATCH (p:Pelicula {id: 'inception-2010'})
+            CREATE (u)-[:CALIFICO {estrellas: 5, fecha: '2026-11-16'}]->(p)
+            """
+        ).consume()
+
+    assert seed.main([]) == 0
+
+    despues = seed.contar()
+    assert despues["usuarios"] == antes["usuarios"] + 1
+    assert despues["califico"] == antes["califico"] + 1
+    # Lo del seed no se duplicó.
+    assert despues["peliculas"] == antes["peliculas"]
+    assert despues["sigue"] == antes["sigue"]
+
+    peliculas, usuarios = leer_datos()
+    assert seed.faltantes(seed.claves_del_seed(peliculas, usuarios), seed.claves_del_grafo()) == {}
